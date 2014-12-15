@@ -1,0 +1,17 @@
+<!doctype html>
+<html>
+    <body>
+        <h1>GithubDB</h1>
+{% with messages = get_flashed_messages() %}
+  {% if messages %}
+    <ul class="flashes">
+    {% for message in messages %}
+      <li>{{ message }}</li>
+    {% endfor %}
+    </ul>
+  {% endif %}
+{% endwith %}
+    <p>Replicating over HTTP.
+    </p>
+    </body>
+</html>
