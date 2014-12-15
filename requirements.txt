@@ -3,6 +3,7 @@ Flask-Dance[models]==0.3.0
 Flask-SQLAlchemy==2.0
 Flask-Script
 Flask-SSLify
+blinker
 requests==2.5.0
 bugsnag
 gunicorn==19.1.1
