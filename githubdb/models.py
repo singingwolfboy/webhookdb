@@ -134,6 +134,7 @@ class PullRequest(db.Model, EventPayloadMixin):
     mergable = db.Column(db.Boolean)
     mergable_state = db.Column(db.String(64))
     merged_by_id = db.Column(db.Integer)
+    merged_by_login = db.Column(db.String(256))
     merged_by = db.relationship(
         User,
         primaryjoin=(merged_by_id == User.id),
