@@ -1,6 +1,7 @@
 # coding=utf-8
 from __future__ import unicode_literals, print_function
 
+from datetime import datetime
 from flask import request, jsonify
 from flask_dance.contrib.github import github
 import bugsnag
@@ -44,8 +45,25 @@ def load_pull(owner, repo, number):
             owner=owner, repo=repo, number=number,
         )
         resp = jsonify({"message": msg})
-        resp.status_code = 503
+        resp.status_code = 502
         return resp
+    if "X-RateLimit-Remaining" in pr_resp.headers:
+        ratelimit_remaining = int(pr_resp.headers["X-RateLimit-Remaining"])
+        if pr_resp.status_code == 403 and ratelimit_remaining < 1:
+            ratelimit_reset_epoch = int(pr_resp.headers["X-RateLimit-Reset"])
+            ratelimit_reset = datetime.fromtimestamp(ratelimit_reset_epoch)
+            wait_time = ratelimit_reset - datetime.now()
+            wait_msg = "Try again in {sec} seconds.".format(
+                sec=int(wait_time.total_seconds())
+            )
+            msg = "{upstream} {wait}".format(
+                upstream=pr_resp.json()["message"],
+                wait=wait_msg,
+            )
+            resp = jsonify({"error": msg})
+            resp.headers["X-RateLimit-Reset"] = ratelimit_reset_epoch
+            resp.status_code = 503
+            return resp
     if not pr_resp.ok:
         raise requests.exceptions.RequestException(pr_resp.text)
     pr_obj = pr_resp.json()
@@ -57,4 +75,3 @@ def load_pull(owner, repo, number):
         return jsonify({"message": "stale data"})
     db.session.commit()
     return jsonify({"message": "success"})
-
