@@ -1,6 +1,8 @@
 # coding=utf-8
 from __future__ import unicode_literals
 from flask.ext.sqlalchemy import SQLAlchemy
+from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy import func
 from flask_dance.models import OAuthConsumerMixin
 from githubdb import db
 
@@ -10,20 +12,34 @@ class OAuth(db.Model, OAuthConsumerMixin):
     pass
 
 
-class EventPayloadMixin(object):
+class ReplicationTimestampMixin(object):
     """
-    When we receive an event from Github, the HTTP request contains one or more
-    serialized objects that the event pertains to. Objects can be serialized
-    to different levels of detail depending on the situation. This mixin
-    provides datetime fields to help us keep track of when an object in our
-    database was last updated, and how.
+    This allows us to keep track of how stale our local data is.
     """
-    last_updated_via_event_at = db.Column(db.DateTime)
-    last_updated_event_name = db.Column(db.String(64))
-    last_updated_via_api_at = db.Column(db.DateTime)
+    last_replicated_via_webhook_at = db.Column(db.DateTime)
+    last_replicated_via_api_at = db.Column(db.DateTime)
+
+    @hybrid_property
+    def last_replicated_at(self):
+        """
+        Return whichever value is greater. If neither is set,
+        return min date (for type consistency).
+        """
+        options = [
+            self.last_replicated_via_webhook_at,
+            self.last_replicated_via_api_at,
+            datetime.min,
+        ]
+        return max(dt for dt in options if dt)
+
+    @last_replicated_at.expression
+    def last_replicated_at(cls):
+        webhook = cls.last_replicated_via_webhook_at
+        api = cls.last_replicated_via_api_at
+        return func.greatest(webhook, api, datetime.min)
 
 
-class User(db.Model, EventPayloadMixin):
+class User(db.Model, ReplicationTimestampMixin):
     id = db.Column(db.Integer, primary_key=True)
     login = db.Column(db.String(256))
     site_admin = db.Column(db.Boolean)
@@ -41,8 +57,14 @@ class User(db.Model, EventPayloadMixin):
     created_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime)
 
+    def __unicode__(self):
+        return "@{login}".format(login=self.login or "<unknown>")
 
-class Repository(db.Model, EventPayloadMixin):
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+
+
+class Repository(db.Model, ReplicationTimestampMixin):
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256))
     owner_id = db.Column(db.Integer)
@@ -80,12 +102,27 @@ class Repository(db.Model, EventPayloadMixin):
     open_issues_count = db.Column(db.Integer)
     default_branch = db.Column(db.String(256))
 
-    @property
+    @hybrid_property
     def full_name(self):
-        return "{self.name}/{self.owner_login}".format(self=self)
+        return "{name}/{owner_login}".format(
+            name=self.name or "<unknown>",
+            owner_login=self.owner_login or "<unknown>",
+        )
+
+    @full_name.expression
+    def full_name(cls):
+        name = func.coalesce(cls.name, "<unknown>")
+        owner_login = func.coalesce(cls.owner_login, "<unknown>")
+        return func.concat(name, '/', owner_login)
+
+    def __unicode__(self):
+        return self.full_name
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
 
 
-class PullRequest(db.Model, EventPayloadMixin):
+class PullRequest(db.Model, ReplicationTimestampMixin):
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.Integer)
     state = db.Column(db.String(64))
@@ -147,3 +184,12 @@ class PullRequest(db.Model, EventPayloadMixin):
     additions = db.Column(db.Integer)
     deletions = db.Column(db.Integer)
     changed_files = db.Column(db.Integer)
+
+    def __unicode__(self):
+        return "{base_repo}#{number}".format(
+            base_repo=self.base_repo or "<unknown>/<unknown>",
+            number=self.number or "<unknown>",
+        )
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')

@@ -8,3 +8,4 @@ requests==2.5.0
 bugsnag
 gunicorn==19.1.1
 psycopg2==2.5.4
+iso8601

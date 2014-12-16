@@ -6,6 +6,9 @@ from iso8601 import parse_date
 from flask import request, jsonify
 import bugsnag
 from . import replication
+from .user import create_or_update_user
+from .repository import create_or_update_repository
+from githubdb import db
 from githubdb.models import User, Repository, PullRequest
 from githubdb.exceptions import MissingInfo, StaleInfo
 
@@ -29,9 +32,9 @@ def pull_request():
         return resp
 
     try:
-        pr = update_pr(pr_obj)
+        create_or_update_pull_request(pr_obj)
     except MissingInfo as err:
-        esp = jsonify({"error": err.message})
+        esp = jsonify({"error": err.message, "obj": err.obj})
         resp.status_code = 400
         return resp
     except StaleInfo:
@@ -40,10 +43,10 @@ def pull_request():
     return jsonify({"message": "success"})
 
 
-def update_pr(pr_obj):
+def create_or_update_pull_request(pr_obj, via="webhook"):
     pr_id = pr_obj.get("id")
     if not pr_id:
-        raise MissingInfo("no pull_request ID")
+        raise MissingInfo("no pull_request ID", obj=pr_obj)
 
     # fetch the object from the database,
     # or create it if it doesn't exist in the DB
@@ -54,8 +57,7 @@ def update_pr(pr_obj):
     now = datetime.now()
 
     # should we update the object?
-    last_updated = pr.last_updated_via_event_at
-    if last_updated and last_updated > now:
+    if pr.last_replicated_at > datetime.now():
         raise StaleInfo()
 
     # update the object
@@ -71,6 +73,7 @@ def update_pr(pr_obj):
     for field in dt_fields:
         dt = parse_date(pr_obj[field]).replace(tzinfo=None)
         setattr(pr, field, dt)
+
     # user references
     user_fields = ("user", "assignee", "merged_by")
     for user_field in user_fields:
@@ -81,13 +84,38 @@ def update_pr(pr_obj):
             setattr(pr, id_field, user_obj["id"])
             if hasattr(pr, login_field):
                 setattr(pr, login_field, user_obj["login"])
-            # TODO: update user object in DB
-            # update_user(user_obj)
+            try:
+                create_or_update_user(user_obj, via=via)
+            except StaleInfo:
+                pass
         else:
             setattr(pr, id_field, None)
             if hasattr(pr, login_field):
                 setattr(pr, login_field, None)
 
-    # TODO: repository references
+    # repository references
+    refs = ("base", "head")
+    for ref in refs:
+        ref_obj = pr_obj[ref]
+        ref_field = "{}_ref".format(ref)
+        setattr(pr, ref_field, ref_obj["ref"])
+        repo_obj = ref_obj["repo"]
+        repo_id_field = "{}_repo_id".format(ref)
+        if repo_obj:
+            setattr(pr, repo_id_field, repo_obj["id"])
+            try:
+                create_or_update_repository(repo_obj, via=via)
+            except StaleInfo:
+                pass
+        else:
+            setattr(pr, repo_id_field, None)
+
+    # update replication timestamp
+    replicated_dt_field = "last_replicated_via_{}_at".format(via)
+    if hasattr(pr, replicated_dt_field):
+        setattr(pr, replicated_dt_field, datetime.now())
+
+    # add to DB session, so that it will be committed
+    db.session.add(user)
 
     return pr
