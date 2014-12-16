@@ -40,7 +40,7 @@ def load_pull(owner, repo, number):
     )
     pr_resp = github.get(pr_url)
     if not pr_resp.ok:
-        raise requests.exceptions.RequestsException(pr_resp.text)
+        raise requests.exceptions.RequestException(pr_resp.text)
     pr_obj = pr_resp.json()
     bugsnag_ctx["obj"] = pr_obj
     bugsnag.configure_request(meta_data=bugsnag_ctx)

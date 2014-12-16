@@ -18,7 +18,7 @@ def load_repo(owner, repo):
     repo_url = "/repos/{owner}/{repo}".format(owner=owner, repo=repo)
     repo_resp = github.get(repo_url)
     if not repo_resp.ok:
-        raise requests.exceptions.RequestsException(repo_resp.text)
+        raise requests.exceptions.RequestException(repo_resp.text)
     repo_obj = repo_resp.json()
     bugsnag_ctx["obj"] = repo_obj
     bugsnag.configure_request(meta_data=bugsnag_ctx)
