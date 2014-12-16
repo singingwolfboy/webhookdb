@@ -1,7 +1,7 @@
 # coding=utf-8
 from __future__ import unicode_literals, print_function
 
-from flask import jsonify
+from flask import request, jsonify
 from flask_dance.contrib.github import github
 import bugsnag
 import requests
@@ -15,7 +15,10 @@ from githubdb.exceptions import StaleData
 def load_pulls(owner, repo):
     bugsnag_ctx = {"owner": owner, "repo": repo}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
-    pulls_url = "/repos/{owner}/{repo}/pulls".format(owner=owner, repo=repo)
+    state = request.args.get("state", "open")
+    pulls_url = "/repos/{owner}/{repo}/pulls?state={state}".format(
+        owner=owner, repo=repo, state=state,
+    )
     pulls = paginated_get(pulls_url, session=github)
     for pull_obj in pulls:
         bugsnag_ctx["obj"] = pull_obj
