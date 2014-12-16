@@ -13,7 +13,7 @@ from githubdb.models import PullRequest
 from githubdb.exceptions import MissingData, StaleData
 
 
-@replication.route('/pull_request')
+@replication.route('/pull_request', methods=["POST"])
 def pull_request():
     payload = request.get_json()
     bugsnag.configure_request(meta_data={"payload": payload})

@@ -12,7 +12,7 @@ from githubdb.models import Repository
 from githubdb.exceptions import StaleData, MissingData
 
 
-@replication.route('/repository')
+@replication.route('/repository', methods=["POST"])
 def repository():
     payload = request.get_json()
     bugsnag.configure_request(meta_data={"payload": payload})
