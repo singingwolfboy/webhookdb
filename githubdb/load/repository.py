@@ -17,6 +17,11 @@ def load_repo(owner, repo):
     bugsnag.configure_request(meta_data=bugsnag_ctx)
     repo_url = "/repos/{owner}/{repo}".format(owner=owner, repo=repo)
     repo_resp = github.get(repo_url)
+    if repo_resp.status_code == 404:
+        msg = "Repo {owner}/{repo} not found".format(owner=owner, repo=repo)
+        resp = jsonify({"message": msg})
+        resp.status_code = 503
+        return resp
     if not repo_resp.ok:
         raise requests.exceptions.RequestException(repo_resp.text)
     repo_obj = repo_resp.json()
@@ -28,5 +33,3 @@ def load_repo(owner, repo):
         return jsonify({"message": "stale data"})
     db.session.commit()
     return jsonify({"message": "success"})
-
-

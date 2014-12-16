@@ -39,6 +39,13 @@ def load_pull(owner, repo, number):
         owner=owner, repo=repo, number=number,
     )
     pr_resp = github.get(pr_url)
+    if pr_resp.status_code == 404:
+        msg = "PR {owner}/{repo}#{number} not found".format(
+            owner=owner, repo=repo, number=number,
+        )
+        resp = jsonify({"message": msg})
+        resp.status_code = 503
+        return resp
     if not pr_resp.ok:
         raise requests.exceptions.RequestException(pr_resp.text)
     pr_obj = pr_resp.json()
