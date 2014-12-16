@@ -18,7 +18,7 @@ def load_pulls(owner, repo):
     pulls_url = "/repos/{owner}/{repo}/pulls".format(owner=owner, repo=repo)
     pulls = paginated_get(pulls_url, session=github)
     for pull_obj in pulls:
-        bugsnag_ctx["obj"] = repo_obj
+        bugsnag_ctx["obj"] = pull_obj
         bugsnag.configure_request(meta_data=bugsnag_ctx)
         try:
             create_or_update_pull_request(pull_obj, via="api")
