@@ -40,7 +40,7 @@ github_bp = make_github_blueprint(
     client_secret=os.environ["GITHUB_CLIENT_SECRET"],
     scope="write:repo_hook",
     redirect_to="ui.index",
-    session_class=OAuth2SessionWithMemory,
+    # session_class=OAuth2SessionWithMemory,
 )
 github_bp.set_token_storage_sqlalchemy(OAuth, db.session)
 

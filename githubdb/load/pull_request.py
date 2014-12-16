@@ -12,6 +12,7 @@ from githubdb.utils import paginated_get
 from githubdb.replication.pull_request import create_or_update_pull_request
 from githubdb.exceptions import StaleData
 
+
 @load.route('/repos/<owner>/<repo>/pulls', methods=["POST"])
 def load_pulls(owner, repo):
     bugsnag_ctx = {"owner": owner, "repo": repo}
@@ -36,7 +37,7 @@ def load_pulls(owner, repo):
 def load_pull(owner, repo, number):
     bugsnag_ctx = {"owner": owner, "repo": repo, "number": number}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
-    pr_url = "https://api.github.com/repos/{owner}/{repo}/pulls/{number}".format(
+    pr_url = "/repos/{owner}/{repo}/pulls/{number}".format(
         owner=owner, repo=repo, number=number,
     )
     pr_resp = github.get(pr_url)
