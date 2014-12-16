@@ -37,7 +37,6 @@ def load_repo(owner, repo):
                 wait=wait_msg,
             )
             resp = jsonify({"error": msg})
-            resp.headers["X-RateLimit-Reset"] = ratelimit_reset_epoch
             resp.status_code = 503
             return resp
     if not repo_resp.ok:
