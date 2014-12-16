@@ -69,7 +69,8 @@ def create_or_update_pull_request(pr_obj, via="webhook"):
         "changed_files",
     )
     for field in fields:
-        setattr(pr, field, pr_obj[field])
+        if field in pr_obj:
+            setattr(pr, field, pr_obj[field])
     dt_fields = ("created_at", "updated_at", "closed_at", "merged_at")
     for field in dt_fields:
         if pr_obj.get(field):
@@ -79,6 +80,8 @@ def create_or_update_pull_request(pr_obj, via="webhook"):
     # user references
     user_fields = ("user", "assignee", "merged_by")
     for user_field in user_fields:
+        if not user_field in pr_obj:
+            continue
         user_obj = pr_obj[user_field]
         id_field = "{}_id".format(user_field)
         login_field = "{}_login".format(user_field)
@@ -98,6 +101,8 @@ def create_or_update_pull_request(pr_obj, via="webhook"):
     # repository references
     refs = ("base", "head")
     for ref in refs:
+        if not ref in pr_obj:
+            continue
         ref_obj = pr_obj[ref]
         ref_field = "{}_ref".format(ref)
         setattr(pr, ref_field, ref_obj["ref"])

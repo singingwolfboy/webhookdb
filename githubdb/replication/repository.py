@@ -66,7 +66,8 @@ def create_or_update_repository(repo_obj, via="webhook"):
         "open_issues_count", "default_branch",
     )
     for field in fields:
-        setattr(repo, field, repo_obj[field])
+        if field in repo_obj:
+            setattr(repo, field, repo_obj[field])
     dt_fields = ("created_at", "updated_at", "pushed_at")
     for field in dt_fields:
         if repo_obj.get(field):
