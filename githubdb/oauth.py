@@ -28,7 +28,7 @@ class OAuth2SessionWithMemory(OAuth2SessionWithBaseURL):
     last_response = None
 
     def request(self, method, url, data=None, headers=None, **kwargs):
-        resp = super(OAuth2SessionWithBaseURL, self).request(
+        resp = super(OAuth2SessionWithMemory, self).request(
             method=method, url=url, data=data, headers=headers, **kwargs
         )
         self.last_response = resp
@@ -40,7 +40,7 @@ github_bp = make_github_blueprint(
     client_secret=os.environ["GITHUB_CLIENT_SECRET"],
     scope="write:repo_hook",
     redirect_to="ui.index",
-    # session_class=OAuth2SessionWithMemory,
+    session_class=OAuth2SessionWithMemory,
 )
 github_bp.set_token_storage_sqlalchemy(OAuth, db.session)
 
