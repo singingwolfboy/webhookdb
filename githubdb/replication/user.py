@@ -7,24 +7,24 @@ from flask import request, jsonify
 import bugsnag
 from . import replication
 from githubdb import db
-from githubdb.models import User, Repository, PullRequest
-from githubdb.exceptions import MissingInfo, StaleInfo
+from githubdb.models import User
+from githubdb.exceptions import MissingData, StaleData
 
 
 def create_or_update_user(user_obj, via="webhook"):
     user_id = user_obj.get("id")
     if not user_id:
-        raise MissingInfo("no user ID")
+        raise MissingData("no user ID")
 
     # fetch the object from the database,
     # or create it if it doesn't exist in the DB
-    user = User.get(pr_id)
+    user = User.query.get(user_id)
     if not user:
         user = User(id=user_id)
 
     # should we update the object?
     if user.last_replicated_at > datetime.now():
-        raise StaleInfo()
+        raise StaleData()
 
     # update the object
     fields = (
@@ -33,11 +33,13 @@ def create_or_update_user(user_obj, via="webhook"):
         "public_gists", "followers", "following",
     )
     for field in fields:
-        setattr(user, field, user_obj[field])
+        if field in user_obj:
+            setattr(user, field, user_obj[field])
     dt_fields = ("created_at", "updated_at")
     for field in dt_fields:
-        dt = parse_date(user_obj[field]).replace(tzinfo=None)
-        setattr(user, field, dt)
+        if user_obj.get(field):
+            dt = parse_date(user_obj[field]).replace(tzinfo=None)
+            setattr(user, field, dt)
 
     # update replication timestamp
     replicated_dt_field = "last_replicated_via_{}_at".format(via)

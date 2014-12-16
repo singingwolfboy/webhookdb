@@ -2,11 +2,11 @@
 from __future__ import unicode_literals
 
 
-class MissingInfo(Exception):
+class MissingData(Exception):
     def __init__(self, message, obj):
         self.message = message
         self.obj = obj
 
 
-class StaleInfo(Exception):
+class StaleData(Exception):
     pass

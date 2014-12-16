@@ -1,10 +1,15 @@
 # coding=utf-8
 from __future__ import unicode_literals, print_function
 
+from datetime import datetime
+from iso8601 import parse_date
 from flask import request
 import bugsnag
 from . import replication
 from .user import create_or_update_user
+from githubdb import db
+from githubdb.models import Repository
+from githubdb.exceptions import StaleData, MissingData
 
 
 @replication.route('/repository')
@@ -27,30 +32,31 @@ def repository():
 
     try:
         create_or_update_repository(repo_obj)
-    except MissingInfo as err:
+    except MissingData as err:
         esp = jsonify({"error": err.message, "obj": err.obj})
         resp.status_code = 400
         return resp
-    except StaleInfo:
-        return jsonify({"message": "stale information"})
+    except StaleData:
+        return jsonify({"message": "stale data"})
 
+    db.session.commit()
     return jsonify({"message": "success"})
 
 
 def create_or_update_repository(repo_obj, via="webhook"):
     repo_id = repo_obj.get("id")
     if not repo_id:
-        raise MissingInfo("no repo ID")
+        raise MissingData("no repo ID")
 
     # fetch the object from the database,
     # or create it if it doesn't exist in the DB
-    repo = Repository.get(pr_id)
+    repo = Repository.query.get(repo_id)
     if not repo:
         repo = Repository(id=repo_id)
 
     # should we update the object?
-    if user.last_replicated_at > datetime.now():
-        raise StaleInfo()
+    if repo.last_replicated_at > datetime.now():
+        raise StaleData()
 
     # update the object
     fields = (
@@ -63,22 +69,25 @@ def create_or_update_repository(repo_obj, via="webhook"):
         setattr(repo, field, repo_obj[field])
     dt_fields = ("created_at", "updated_at", "pushed_at")
     for field in dt_fields:
-        dt = parse_date(repo_obj[field]).replace(tzinfo=None)
-        setattr(user, field, dt)
+        if repo_obj.get(field):
+            dt = parse_date(repo_obj[field]).replace(tzinfo=None)
+            setattr(repo, field, dt)
 
     # user references
     user_fields = ("owner", "organization")
     for user_field in user_fields:
+        if not user_field in repo_obj:
+            continue
         user_obj = repo_obj[user_field]
         id_field = "{}_id".format(user_field)
         login_field = "{}_login".format(user_field)
         if user_obj:
-            setattr(pr, id_field, user_obj["id"])
-            if hasattr(pr, login_field):
-                setattr(pr, login_field, user_obj["login"])
+            setattr(repo, id_field, user_obj["id"])
+            if hasattr(repo, login_field):
+                setattr(repo, login_field, user_obj["login"])
             try:
                 create_or_update_user(user_obj, via=via)
-            except StaleInfo:
+            except StaleData:
                 pass
         else:
             setattr(repo, id_field, None)

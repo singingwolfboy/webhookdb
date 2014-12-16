@@ -9,8 +9,8 @@ from . import replication
 from .user import create_or_update_user
 from .repository import create_or_update_repository
 from githubdb import db
-from githubdb.models import User, Repository, PullRequest
-from githubdb.exceptions import MissingInfo, StaleInfo
+from githubdb.models import PullRequest
+from githubdb.exceptions import MissingData, StaleData
 
 
 @replication.route('/pull_request')
@@ -33,24 +33,25 @@ def pull_request():
 
     try:
         create_or_update_pull_request(pr_obj)
-    except MissingInfo as err:
+    except MissingData as err:
         esp = jsonify({"error": err.message, "obj": err.obj})
         resp.status_code = 400
         return resp
-    except StaleInfo:
-        return jsonify({"message": "stale information"})
+    except StaleData:
+        return jsonify({"message": "stale data"})
 
+    db.session.commit()
     return jsonify({"message": "success"})
 
 
 def create_or_update_pull_request(pr_obj, via="webhook"):
     pr_id = pr_obj.get("id")
     if not pr_id:
-        raise MissingInfo("no pull_request ID", obj=pr_obj)
+        raise MissingData("no pull_request ID", obj=pr_obj)
 
     # fetch the object from the database,
     # or create it if it doesn't exist in the DB
-    pr = PullRequest.get(pr_id)
+    pr = PullRequest.query.get(pr_id)
     if not pr:
         pr = PullRequest(id=pr_id)
 
@@ -58,11 +59,11 @@ def create_or_update_pull_request(pr_obj, via="webhook"):
 
     # should we update the object?
     if pr.last_replicated_at > datetime.now():
-        raise StaleInfo()
+        raise StaleData()
 
     # update the object
     fields = (
-        "number", "statue", "locked", "title", "body", "merge_commit_sha",
+        "number", "state", "locked", "title", "body", "merge_commit_sha",
         "milestone", "merged", "mergeable", "mergeable_state",
         "comments", "review_comments", "commits", "additions", "deletions",
         "changed_files",
@@ -71,8 +72,9 @@ def create_or_update_pull_request(pr_obj, via="webhook"):
         setattr(pr, field, pr_obj[field])
     dt_fields = ("created_at", "updated_at", "closed_at", "merged_at")
     for field in dt_fields:
-        dt = parse_date(pr_obj[field]).replace(tzinfo=None)
-        setattr(pr, field, dt)
+        if pr_obj.get(field):
+            dt = parse_date(pr_obj[field]).replace(tzinfo=None)
+            setattr(pr, field, dt)
 
     # user references
     user_fields = ("user", "assignee", "merged_by")
@@ -86,7 +88,7 @@ def create_or_update_pull_request(pr_obj, via="webhook"):
                 setattr(pr, login_field, user_obj["login"])
             try:
                 create_or_update_user(user_obj, via=via)
-            except StaleInfo:
+            except StaleData:
                 pass
         else:
             setattr(pr, id_field, None)
@@ -105,7 +107,7 @@ def create_or_update_pull_request(pr_obj, via="webhook"):
             setattr(pr, repo_id_field, repo_obj["id"])
             try:
                 create_or_update_repository(repo_obj, via=via)
-            except StaleInfo:
+            except StaleData:
                 pass
         else:
             setattr(pr, repo_id_field, None)
@@ -116,6 +118,6 @@ def create_or_update_pull_request(pr_obj, via="webhook"):
         setattr(pr, replicated_dt_field, datetime.now())
 
     # add to DB session, so that it will be committed
-    db.session.add(user)
+    db.session.add(pr)
 
     return pr

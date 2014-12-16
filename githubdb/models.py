@@ -1,5 +1,6 @@
 # coding=utf-8
 from __future__ import unicode_literals
+from datetime import datetime
 from flask.ext.sqlalchemy import SQLAlchemy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy import func
@@ -104,9 +105,9 @@ class Repository(db.Model, ReplicationTimestampMixin):
 
     @hybrid_property
     def full_name(self):
-        return "{name}/{owner_login}".format(
-            name=self.name or "<unknown>",
+        return "{owner_login}/{name}".format(
             owner_login=self.owner_login or "<unknown>",
+            name=self.name or "<unknown>",
         )
 
     @full_name.expression

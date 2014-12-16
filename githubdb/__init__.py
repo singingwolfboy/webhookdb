@@ -33,7 +33,10 @@ def create_app():
     app.register_blueprint(github_bp, url_prefix="/login")
 
     from .replication import replication as repl_blueprint
-    app.register_blueprint(repl_blueprint)
+    app.register_blueprint(repl_blueprint, url_prefix="/replication")
+
+    from .load import load as load_blueprint
+    app.register_blueprint(load_blueprint, url_prefix="/load")
 
     from .ui import ui as ui_blueprint
     app.register_blueprint(ui_blueprint)
