@@ -98,7 +98,7 @@ def pull_request_files(owner, repo, number):
         owner=owner, repo=repo, number=number,
     )
     prfs = paginated_get(prfs_url, session=github)
-    for prf_obj in pulls:
+    for prf_obj in prfs:
         prf_obj["pull_request_id"] = pr.id
         bugsnag_ctx["obj"] = prf_obj
         bugsnag.configure_request(meta_data=bugsnag_ctx)

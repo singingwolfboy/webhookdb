@@ -170,7 +170,7 @@ def create_or_update_pull_request_file(prf_obj, via="webhook"):
     )
     for field in fields:
         if field in prf_obj:
-            setattr(prf, field, pr_obj[field])
+            setattr(prf, field, prf_obj[field])
 
     # update replication timestamp
     replicated_dt_field = "last_replicated_via_{}_at".format(via)
