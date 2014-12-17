@@ -14,7 +14,7 @@ from githubdb.utils import paginated_get
 from githubdb.replication.pull_request import (
     create_or_update_pull_request, create_or_update_pull_request_file
 )
-from githubdb.exceptions import StaleData
+from githubdb.exceptions import StaleData, MissingData
 
 
 @load.route('/repos/<owner>/<repo>/pulls', methods=["POST"])
@@ -97,6 +97,8 @@ def pull_request_files(owner, repo, number):
     # delete all previous pull request files associated with this PR
     PullRequestFile.query.filter_by(pull_request_id=pr.id).delete()
 
+    missing_data = set()
+
     # re-populate DB from Github API
     prfs_url = "/repos/{owner}/{repo}/pulls/{number}/files".format(
         owner=owner, repo=repo, number=number,
@@ -110,8 +112,17 @@ def pull_request_files(owner, repo, number):
             create_or_update_pull_request_file(prf_obj, via="api")
         except StaleData:
             pass
+        except MissingData:
+            # This SHOULDN'T HAPPEN, but it does. Sweep it under the rug.
+            missing_data.add(prf_obj.get("filename"))
 
     # deletes and additions don't take effect until we commit
     db.session.commit()
 
-    return jsonify({"message": "success"})
+    if missing_data:
+        return jsonify({
+            "message": "success with API issues",
+            "failures": list(missing_data),
+        })
+    else:
+        return jsonify({"message": "success"})
