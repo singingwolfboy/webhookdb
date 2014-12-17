@@ -5,6 +5,7 @@ from datetime import datetime
 from iso8601 import parse_date
 from flask import request, jsonify, url_for
 import bugsnag
+import requests
 from . import replication
 from .user import create_or_update_user
 from .repository import create_or_update_repository
