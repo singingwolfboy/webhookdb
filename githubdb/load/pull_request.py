@@ -72,7 +72,7 @@ def pull_request_files(owner, repo, number):
 
     # get pull request from DB
     pr_query = (
-        PullRequest.query.join(Repository)
+        PullRequest.query.join(Repository, PullRequest.base_repo_id == Repository.id)
         .filter(Repository.owner_login == owner)
         .filter(Repository.name == repo)
         .filter(PullRequest.number == number)
