@@ -9,7 +9,7 @@ import bugsnag
 import requests
 from . import load
 from githubdb import db
-from githubdb.models import Repository, PullRequest
+from githubdb.models import Repository, PullRequest, PullRequestFile
 from githubdb.utils import paginated_get
 from githubdb.replication.pull_request import (
     create_or_update_pull_request, create_or_update_pull_request_file
@@ -94,6 +94,10 @@ def pull_request_files(owner, repo, number):
         resp.status_code = 500
         return resp
 
+    # delete all previous pull request files associated with this PR
+    PullRequestFile.query.filter_by(pull_request_id=pr.id).delete()
+
+    # re-populate DB from Github API
     prfs_url = "/repos/{owner}/{repo}/pulls/{number}/files".format(
         owner=owner, repo=repo, number=number,
     )
@@ -107,5 +111,7 @@ def pull_request_files(owner, repo, number):
         except StaleData:
             pass
 
+    # deletes and additions don't take effect until we commit
     db.session.commit()
+
     return jsonify({"message": "success"})

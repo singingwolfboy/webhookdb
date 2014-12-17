@@ -213,5 +213,5 @@ class PullRequestFile(db.Model, ReplicationTimestampMixin):
     changes = db.Column(db.Integer)
     patch = db.Column(db.Text)
 
-    pull_request_id = db.Column(db.Integer, db.ForeignKey(PullRequest.id))
+    pull_request_id = db.Column(db.Integer, db.ForeignKey(PullRequest.id), index=True)
     pull_request = db.relationship(PullRequest)
