@@ -72,7 +72,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256))
-    owner_id = db.Column(db.Integer)
+    owner_id = db.Column(db.Integer, index=True)
     owner_login = db.Column(db.String(256))
     owner = db.relationship(
         User,
@@ -80,7 +80,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
         foreign_keys=owner_id,
         remote_side=User.id,
     )
-    organization_id = db.Column(db.Integer)
+    organization_id = db.Column(db.Integer, index=True)
     organization_login = db.Column(db.String(256))
     organization = db.relationship(
         User,
@@ -134,7 +134,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
     number = db.Column(db.Integer)
     state = db.Column(db.String(64))
     locked = db.Column(db.Boolean)
-    user_id = db.Column(db.Integer)
+    user_id = db.Column(db.Integer, index=True)
     user_login = db.Column(db.String(256))
     user = db.relationship(
         User,
@@ -149,7 +149,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
     closed_at = db.Column(db.DateTime)
     merged_at = db.Column(db.DateTime)
     merge_commit_sha = db.Column(db.String(40))
-    assignee_id = db.Column(db.Integer)
+    assignee_id = db.Column(db.Integer, index=True)
     assignee_login = db.Column(db.String(256))
     assignee = db.relationship(
         User,
@@ -158,7 +158,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         remote_side=User.id,
     )
     milestone = db.Column(db.String(256))
-    base_repo_id = db.Column(db.Integer)
+    base_repo_id = db.Column(db.Integer, index=True)
     base_repo = db.relationship(
         Repository,
         primaryjoin=(base_repo_id == Repository.id),
@@ -166,7 +166,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         remote_side=Repository.id,
     )
     base_ref = db.Column(db.String(256))
-    head_repo_id = db.Column(db.Integer)
+    head_repo_id = db.Column(db.Integer, index=True)
     head_repo = db.relationship(
         Repository,
         primaryjoin=(head_repo_id == Repository.id),
@@ -177,7 +177,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
     merged = db.Column(db.Boolean)
     mergable = db.Column(db.Boolean)
     mergable_state = db.Column(db.String(64))
-    merged_by_id = db.Column(db.Integer)
+    merged_by_id = db.Column(db.Integer, index=True)
     merged_by_login = db.Column(db.String(256))
     merged_by = db.relationship(
         User,
