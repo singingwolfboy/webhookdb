@@ -41,7 +41,7 @@ class ReplicationTimestampMixin(object):
 
 
 class User(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "githubdb_users"
+    __tablename__ = "githubdb_user"
 
     id = db.Column(db.Integer, primary_key=True)
     login = db.Column(db.String(256))
@@ -68,7 +68,7 @@ class User(db.Model, ReplicationTimestampMixin):
 
 
 class Repository(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "githubdb_repositories"
+    __tablename__ = "githubdb_repository"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256))
@@ -128,7 +128,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
 
 
 class PullRequest(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "githubdb_pull_requests"
+    __tablename__ = "githubdb_pull_request"
 
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.Integer)
