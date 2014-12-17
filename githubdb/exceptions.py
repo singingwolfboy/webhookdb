@@ -10,3 +10,8 @@ class MissingData(Exception):
 
 class StaleData(Exception):
     pass
+
+
+class RateLimited(Exception):
+    def __init__(self, response):
+        self.response = response

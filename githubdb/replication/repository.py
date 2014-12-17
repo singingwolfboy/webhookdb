@@ -77,7 +77,7 @@ def create_or_update_repository(repo_obj, via="webhook"):
     # user references
     user_fields = ("owner", "organization")
     for user_field in user_fields:
-        if not user_field in repo_obj:
+        if user_field not in repo_obj:
             continue
         user_obj = repo_obj[user_field]
         id_field = "{}_id".format(user_field)
@@ -94,7 +94,6 @@ def create_or_update_repository(repo_obj, via="webhook"):
             setattr(repo, id_field, None)
             if hasattr(repo, login_field):
                 setattr(repo, login_field, None)
-
 
     # update replication timestamp
     replicated_dt_field = "last_replicated_via_{}_at".format(via)

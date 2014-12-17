@@ -5,6 +5,6 @@ from flask import Blueprint
 
 load = Blueprint('load', __name__)
 
-from .repository import load_repo
-from .pull_request import load_pulls, load_pull
-from .decorators import attach_ratelimit_headers
+from .repository import repository
+from .pull_request import pull_request, pull_requests
+from .ratelimit import attach_ratelimit_headers, request_rate_limited

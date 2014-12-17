@@ -200,3 +200,18 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
 
     def __str__(self):
         return unicode(self).encode('utf-8')
+
+
+class PullRequestFile(db.Model, ReplicationTimestampMixin):
+    __tablename__ = "githubdb_pull_request_file"
+
+    sha = db.Column(db.String(40), primary_key=True)
+    filename = db.Column(db.String(256))
+    status = db.Column(db.String(64))
+    additions = db.Column(db.Integer)
+    deletions = db.Column(db.Integer)
+    changes = db.Column(db.Integer)
+    patch = db.Column(db.Text)
+
+    pull_request_id = db.Column(db.Integer, db.ForeignKey(PullRequest.id))
+    pull_request = db.relationship(PullRequest)

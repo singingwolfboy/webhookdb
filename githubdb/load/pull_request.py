@@ -4,17 +4,21 @@ from __future__ import unicode_literals, print_function
 from datetime import datetime
 from flask import request, jsonify
 from flask_dance.contrib.github import github
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 import bugsnag
 import requests
 from . import load
 from githubdb import db
+from githubdb.models import Repository, PullRequest
 from githubdb.utils import paginated_get
-from githubdb.replication.pull_request import create_or_update_pull_request
+from githubdb.replication.pull_request import (
+    create_or_update_pull_request, create_or_update_pull_request_file
+)
 from githubdb.exceptions import StaleData
 
 
 @load.route('/repos/<owner>/<repo>/pulls', methods=["POST"])
-def load_pulls(owner, repo):
+def pull_requests(owner, repo):
     bugsnag_ctx = {"owner": owner, "repo": repo}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
     state = request.args.get("state", "open")
@@ -34,7 +38,7 @@ def load_pulls(owner, repo):
 
 
 @load.route('/repos/<owner>/<repo>/pulls/<int:number>', methods=["POST"])
-def load_pull(owner, repo, number):
+def pull_request(owner, repo, number):
     bugsnag_ctx = {"owner": owner, "repo": repo, "number": number}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
     pr_url = "/repos/{owner}/{repo}/pulls/{number}".format(
@@ -48,22 +52,6 @@ def load_pull(owner, repo, number):
         resp = jsonify({"message": msg})
         resp.status_code = 502
         return resp
-    if "X-RateLimit-Remaining" in pr_resp.headers:
-        ratelimit_remaining = int(pr_resp.headers["X-RateLimit-Remaining"])
-        if pr_resp.status_code == 403 and ratelimit_remaining < 1:
-            ratelimit_reset_epoch = int(pr_resp.headers["X-RateLimit-Reset"])
-            ratelimit_reset = datetime.fromtimestamp(ratelimit_reset_epoch)
-            wait_time = ratelimit_reset - datetime.now()
-            wait_msg = "Try again in {sec} seconds.".format(
-                sec=int(wait_time.total_seconds())
-            )
-            msg = "{upstream} {wait}".format(
-                upstream=pr_resp.json()["message"],
-                wait=wait_msg,
-            )
-            resp = jsonify({"error": msg})
-            resp.status_code = 503
-            return resp
     if not pr_resp.ok:
         raise requests.exceptions.RequestException(pr_resp.text)
     pr_obj = pr_resp.json()
@@ -73,5 +61,51 @@ def load_pull(owner, repo, number):
         create_or_update_pull_request(pr_obj, via="api")
     except StaleData:
         return jsonify({"message": "stale data"})
+    db.session.commit()
+    return jsonify({"message": "success"})
+
+
+@load.route('/repos/<owner>/<repo>/pulls/<int:number>/files', methods=["POST"])
+def pull_request_files(owner, repo, number):
+    bugsnag_ctx = {"owner": owner, "repo": repo, "number": number}
+    bugsnag.configure_request(meta_data=bugsnag_ctx)
+
+    # get pull request from DB
+    pr_query = (
+        PullRequest.query.join(Repository)
+        .filter(Repository.owner_login == owner)
+        .filter(Repository.name == repo)
+        .filter(PullRequest.number == number)
+    )
+    try:
+        pr = pr_query.one()
+    except NoResultFound:
+        msg = "PR {owner}/{repo}#{number} not loaded in githubdb".format(
+            owner=owner, repo=repo, number=number,
+        )
+        resp = jsonify({"error": msg})
+        resp.status_code = 404
+        return resp
+    except MultipleResultsFound:
+        msg = "PR {owner}/{repo}#{number} found multiple times!".format(
+            owner=owner, repo=repo, number=number,
+        )
+        resp = jsonify({"error": msg})
+        resp.status_code = 500
+        return resp
+
+    prfs_url = "/repos/{owner}/{repo}/pulls/{number}/files".format(
+        owner=owner, repo=repo, number=number,
+    )
+    prfs = paginated_get(prfs_url, session=github)
+    for prf_obj in pulls:
+        prf_obj["pull_request_id"] = pr.id
+        bugsnag_ctx["obj"] = prf_obj
+        bugsnag.configure_request(meta_data=bugsnag_ctx)
+        try:
+            create_or_update_pull_request_file(prf_obj, via="api")
+        except StaleData:
+            pass
+
     db.session.commit()
     return jsonify({"message": "success"})
