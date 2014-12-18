@@ -97,7 +97,7 @@ def create_or_update_pull_request(pr_obj, via="webhook"):
     # user references
     user_fields = ("user", "assignee", "merged_by")
     for user_field in user_fields:
-        if not user_field in pr_obj:
+        if user_field not in pr_obj:
             continue
         user_obj = pr_obj[user_field]
         id_field = "{}_id".format(user_field)

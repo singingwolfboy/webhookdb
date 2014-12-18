@@ -42,7 +42,7 @@ class GithubSession(OAuth2SessionWithBaseURL):
         if resp.headers.get("X-RateLimit-Remaining"):
             rl_remaining = int(resp.headers["X-RateLimit-Remaining"])
             if rl_remaining < 1:
-                raise RateLimited(response=response)
+                raise RateLimited(response=resp)
         return resp
 
 
