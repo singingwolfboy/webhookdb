@@ -215,3 +215,12 @@ class PullRequestFile(db.Model, ReplicationTimestampMixin):
 
     pull_request_id = db.Column(db.Integer, db.ForeignKey(PullRequest.id), index=True)
     pull_request = db.relationship(PullRequest)
+
+    def __unicode__(self):
+        return "{pr} {filename}".format(
+            pr=self.pull_request or "<unknown>/<unknown>#<unknown>",
+            filename=self.filename or "<unknown>",
+        )
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
