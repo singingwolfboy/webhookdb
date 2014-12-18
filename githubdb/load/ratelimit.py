@@ -1,7 +1,6 @@
 # coding=utf-8
 from __future__ import unicode_literals, print_function
 
-import sys
 from datetime import datetime
 from . import load
 from flask import jsonify
@@ -11,14 +10,18 @@ from githubdb.exceptions import RateLimited
 
 @load.after_request
 def attach_ratelimit_headers(response, gh_response=None):
-    gh_response = gh_response or getattr(github, "last_response", None)
-    if not gh_response:
-        print("no gh_response", file=sys.stderr)
+    # A response with a non-OK response code is falsy, so can't just do:
+    #   gh_response = gh_response or getattr(github, "last_response", None)
+    # Instead, we have to actually check for None
+    if gh_response is None:
+        gh_response = getattr(github, "last_response", None)
+    if gh_response is None:
         return response
+
+    # attach ratelimit headers
     headers = ("X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset")
     for h in headers:
-        if h in gh_response:
-            print(h + " in gh_response", file=sys.stderr)
+        if h in gh_response.headers:
             response.headers[h] = gh_response.headers[h]
     return response
 
@@ -45,5 +48,4 @@ def request_rate_limited(error):
     )
     resp = jsonify({"error": msg})
     resp.status_code = 503
-    print(gh_resp.headers, file=sys.stderr)
     return attach_ratelimit_headers(resp, gh_resp)
