@@ -1,6 +1,7 @@
 # coding=utf-8
 from __future__ import unicode_literals, print_function
 
+import sys
 from datetime import datetime
 from . import load
 from flask import jsonify
@@ -12,10 +13,12 @@ from githubdb.exceptions import RateLimited
 def attach_ratelimit_headers(response, gh_response=None):
     gh_response = gh_response or getattr(github, "last_response", None)
     if not gh_response:
+        print("no gh_response", file=sys.stderr)
         return response
     headers = ("X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset")
     for h in headers:
         if h in gh_response:
+            print(h + " in gh_response", file=sys.stderr)
             response.headers[h] = gh_response.headers[h]
     return response
 
@@ -42,4 +45,5 @@ def request_rate_limited(error):
     )
     resp = jsonify({"error": msg})
     resp.status_code = 503
+    print(gh_resp.headers, file=sys.stderr)
     return attach_ratelimit_headers(resp, gh_resp)
