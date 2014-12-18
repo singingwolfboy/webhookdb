@@ -9,25 +9,26 @@ from githubdb.exceptions import RateLimited
 
 
 @load.after_request
-def attach_ratelimit_headers(response):
-    if not getattr(github, "last_response", None):
+def attach_ratelimit_headers(response, gh_response=None):
+    gh_response = gh_response or getattr(github, "last_response", None)
+    if not gh_response:
         return response
     headers = ("X-RateLimit-Limit", "X-RateLimit-Remaining", "X-RateLimit-Reset")
     for h in headers:
-        if h in github.last_response.headers:
-            response.headers[h] = github.last_response.headers[h]
+        if h in gh_response:
+            response.headers[h] = gh_response.headers[h]
     return response
 
 
 @load.app_errorhandler(RateLimited)
 def request_rate_limited(error):
-    resp = error.response
+    gh_resp = error.response
     try:
-        upstream_msg = resp.json()["message"]
+        upstream_msg = gh_resp.json()["message"]
     except Exception:
         upstream_msg = "Rate limited."
 
-    ratelimit_reset_epoch = int(resp.headers["X-RateLimit-Reset"])
+    ratelimit_reset_epoch = int(gh_resp.headers["X-RateLimit-Reset"])
     ratelimit_reset = datetime.fromtimestamp(ratelimit_reset_epoch)
     wait_time = ratelimit_reset - datetime.now()
     sec = int(wait_time.total_seconds())
@@ -41,4 +42,4 @@ def request_rate_limited(error):
     )
     resp = jsonify({"error": msg})
     resp.status_code = 503
-    return resp
+    return attach_ratelimit_headers(resp, gh_resp)
