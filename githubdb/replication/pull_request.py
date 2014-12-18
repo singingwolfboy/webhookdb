@@ -48,6 +48,7 @@ def pull_request():
     pr_file_url = url_for("load.pull_request_files",
         owner=pr.base_repo.owner_login, repo=pr.base_repo.name,
         number=pr.number,
+        _external=True,
     )
     # First number is connect timeout: time to wait for connection to remote server.
     # Second number is read timeout: time to wait for the server to send a response.
