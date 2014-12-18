@@ -48,4 +48,4 @@ def request_rate_limited(error):
     )
     resp = jsonify({"error": msg})
     resp.status_code = 503
-    return attach_ratelimit_headers(resp, gh_resp)
+    return resp
