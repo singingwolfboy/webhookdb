@@ -2,8 +2,8 @@
 import flask
 from flask.ext.script import Manager, prompt_bool
 import sqlalchemy
-from githubdb import create_app, db
-from githubdb.models import OAuth, User, Repository, PullRequest
+from webhookdb import create_app, db
+from webhookdb.models import OAuth, User, Repository, PullRequest
 
 manager = Manager(create_app)
 

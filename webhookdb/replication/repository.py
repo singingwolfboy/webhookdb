@@ -7,9 +7,9 @@ from flask import request
 import bugsnag
 from . import replication
 from .user import create_or_update_user
-from githubdb import db
-from githubdb.models import Repository
-from githubdb.exceptions import StaleData, MissingData
+from webhookdb import db
+from webhookdb.models import Repository
+from webhookdb.exceptions import StaleData, MissingData
 
 
 @replication.route('/repository', methods=["POST"])

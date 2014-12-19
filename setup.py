@@ -23,13 +23,13 @@ def get_requirements(path):
 
 
 setup(
-    name="GithubDB",
+    name="WebhookDB",
     version="0.0.1",
     description="Replicates Github's database via HTTP webhooks",
     long_description=open('README.rst').read(),
     author="David Baumgold",
     author_email="david@davidbaumgold.com",
-    url="https://github.com/singingwolfboy/githubdb",
+    url="https://github.com/singingwolfboy/webhookdb",
     packages=find_packages(),
     install_requires=get_requirements("requirements.txt"),
     license='AGPL',

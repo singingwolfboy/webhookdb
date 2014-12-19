@@ -9,9 +9,9 @@ import requests
 from . import replication
 from .user import create_or_update_user
 from .repository import create_or_update_repository
-from githubdb import db
-from githubdb.models import PullRequest, PullRequestFile
-from githubdb.exceptions import MissingData, StaleData
+from webhookdb import db
+from webhookdb.models import PullRequest, PullRequestFile
+from webhookdb.exceptions import MissingData, StaleData
 
 
 @replication.route('/pull_request', methods=["POST"])

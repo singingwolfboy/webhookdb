@@ -8,13 +8,13 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 import bugsnag
 import requests
 from . import load
-from githubdb import db
-from githubdb.models import Repository, PullRequest, PullRequestFile
-from githubdb.utils import paginated_get
-from githubdb.replication.pull_request import (
+from webhookdb import db
+from webhookdb.models import Repository, PullRequest, PullRequestFile
+from webhookdb.utils import paginated_get
+from webhookdb.replication.pull_request import (
     create_or_update_pull_request, create_or_update_pull_request_file
 )
-from githubdb.exceptions import StaleData, MissingData
+from webhookdb.exceptions import StaleData, MissingData
 
 
 @load.route('/repos/<owner>/<repo>/pulls', methods=["POST"])
@@ -80,7 +80,7 @@ def pull_request_files(owner, repo, number):
     try:
         pr = pr_query.one()
     except NoResultFound:
-        msg = "PR {owner}/{repo}#{number} not loaded in githubdb".format(
+        msg = "PR {owner}/{repo}#{number} not loaded in webhookdb".format(
             owner=owner, repo=repo, number=number,
         )
         resp = jsonify({"error": msg})

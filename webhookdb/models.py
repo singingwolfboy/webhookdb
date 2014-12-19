@@ -5,7 +5,7 @@ from flask.ext.sqlalchemy import SQLAlchemy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy import func
 from flask_dance.models import OAuthConsumerMixin
-from githubdb import db
+from webhookdb import db
 
 
 class OAuth(db.Model, OAuthConsumerMixin):
@@ -41,7 +41,7 @@ class ReplicationTimestampMixin(object):
 
 
 class User(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "githubdb_user"
+    __tablename__ = "webhookdb_user"
 
     id = db.Column(db.Integer, primary_key=True)
     login = db.Column(db.String(256))
@@ -68,7 +68,7 @@ class User(db.Model, ReplicationTimestampMixin):
 
 
 class Repository(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "githubdb_repository"
+    __tablename__ = "webhookdb_repository"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256))
@@ -128,7 +128,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
 
 
 class PullRequest(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "githubdb_pull_request"
+    __tablename__ = "webhookdb_pull_request"
 
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.Integer)
@@ -203,7 +203,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
 
 
 class PullRequestFile(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "githubdb_pull_request_file"
+    __tablename__ = "webhookdb_pull_request_file"
 
     sha = db.Column(db.String(40), primary_key=True)
     filename = db.Column(db.String(256))

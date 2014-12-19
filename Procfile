@@ -1,1 +1,1 @@
-web: gunicorn githubdb:create_app\(\) --log-file=-
+web: gunicorn webhookdb:create_app\(\) --log-file=-

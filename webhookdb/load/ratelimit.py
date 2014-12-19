@@ -5,7 +5,7 @@ from datetime import datetime
 from . import load
 from flask import jsonify
 from flask_dance.contrib.github import github
-from githubdb.exceptions import RateLimited
+from webhookdb.exceptions import RateLimited
 
 
 @load.after_request

@@ -7,9 +7,9 @@ from flask_dance.contrib.github import github
 import bugsnag
 import requests
 from . import load
-from githubdb import db
-from githubdb.replication.repository import create_or_update_repository
-from githubdb.exceptions import StaleData
+from webhookdb import db
+from webhookdb.replication.repository import create_or_update_repository
+from webhookdb.exceptions import StaleData
 
 
 @load.route('/repos/<owner>/<repo>', methods=["POST"])

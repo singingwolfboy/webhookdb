@@ -8,9 +8,9 @@ from flask import request, flash
 from flask_dance.contrib.github import make_github_blueprint
 from flask_dance.consumer.oauth2 import OAuth2SessionWithBaseURL
 from flask_dance.consumer import oauth_authorized
-from githubdb import db
-from githubdb.models import OAuth
-from githubdb.exceptions import RateLimited
+from webhookdb import db
+from webhookdb.models import OAuth
+from webhookdb.exceptions import RateLimited
 
 
 # Check for required environment variables

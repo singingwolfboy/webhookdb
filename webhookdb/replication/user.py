@@ -6,9 +6,9 @@ from iso8601 import parse_date
 from flask import request, jsonify
 import bugsnag
 from . import replication
-from githubdb import db
-from githubdb.models import User
-from githubdb.exceptions import MissingData, StaleData
+from webhookdb import db
+from webhookdb.models import User
+from webhookdb.exceptions import MissingData, StaleData
 
 
 def create_or_update_user(user_obj, via="webhook"):
