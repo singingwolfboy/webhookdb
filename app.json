@@ -1,0 +1,31 @@
+{
+  "name": "WebhookDB",
+  "description": "Replicates Github's database via HTTP webhooks.",
+  "keywords": [
+    "databases",
+    "webhooks"
+  ],
+  "website": "https://github.com/singingwolfboy/webhookdb",
+  "repository": "https://github.com/singingwolfboy/webhookdb",
+  "logo": "https://raw.githubusercontent.com/singingwolfboy/webhookdb/master/artwork/webhookdb-square.png",
+  "success_url": "/",
+  "scripts": {
+    "postdeploy": "python manage.py dbcreate"
+  },
+  "env": {
+    "FLASK_SECRET_KEY": {
+      "description": "A secret key for verifying the integrity of signed cookies.",
+      "generator": "secret"
+    },
+    "GITHUB_CLIENT_ID": {
+      "description": "The OAuth client ID for your application, assigned by Github"
+    },
+    "GITHUB_CLIENT_SECRET": {
+      "description": "The OAuth client secret for your application, assigned by Github"
+    }
+  },
+  "addons": [
+    "heroku-postgresql",
+    "bugsnag"
+  ]
+}
