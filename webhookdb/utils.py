@@ -7,9 +7,13 @@ import functools
 import requests
 import bugsnag
 from urlobject import URLObject
+from webhookdb.exceptions import NotFound
 
 
-def paginated_get(url, session=None, limit=None, per_page=100, debug=False, **kwargs):
+def paginated_get(url, session=None, limit=None,
+                  per_page=100, start_page=None,
+                  yield_full_page=False, include_page_num=False,
+                  logger=None, **kwargs):
     """
     Retrieve all objects from a paginated API.
 
@@ -23,22 +27,38 @@ def paginated_get(url, session=None, limit=None, per_page=100, debug=False, **kw
 
     """
     url = URLObject(url).set_query_param('per_page', str(per_page))
-    limit = limit or 999999999
+    if start_page:
+        url = url.set_query_param('page', str(start_page))
+    limit = limit or sys.maxint
     session = session or requests.Session()
+    current_page = int(start_page or 1)
     returned = 0
     while url:
+        if logger:
+            logger.debug(resp.url)
         resp = session.get(url, **kwargs)
-        if debug:
-            print(resp.url, file=sys.stderr)
         result = resp.json()
+        if resp.status_code == 404:
+            raise NotFound(result.get("message"))
         if not resp.ok:
-            raise requests.exceptions.RequestException(result["message"])
-        for item in result:
-            yield item
-            returned += 1
+            raise requests.exceptions.RequestException(result.get("message"))
+        if yield_full_page:
+            if include_page_num:
+                yield result, current_page
+            else:
+                yield result
+            returned += len(result)
+        else:
+            for item in result:
+                if include_page_num:
+                    yield item, current_page
+                else:
+                    yield item
+                returned += 1
         url = None
         if resp.links and returned < limit:
             url = resp.links.get("next", {}).get("url", "")
+            current_page += 1
 
 
 def memoize(func):

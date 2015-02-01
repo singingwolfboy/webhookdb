@@ -26,7 +26,7 @@ def attach_ratelimit_headers(response, gh_response=None):
     return response
 
 
-@load.app_errorhandler(RateLimited)
+@load.errorhandler(RateLimited)
 def request_rate_limited(error):
     gh_resp = error.response
     try:
@@ -34,9 +34,7 @@ def request_rate_limited(error):
     except Exception:
         upstream_msg = "Rate limited."
 
-    ratelimit_reset_epoch = int(gh_resp.headers["X-RateLimit-Reset"])
-    ratelimit_reset = datetime.fromtimestamp(ratelimit_reset_epoch)
-    wait_time = ratelimit_reset - datetime.now()
+    wait_time = error.reset - datetime.now()
     sec = int(wait_time.total_seconds())
     wait_msg = "Try again in {sec} {unit}.".format(
         sec=sec, unit="second" if sec == 1 else "seconds",

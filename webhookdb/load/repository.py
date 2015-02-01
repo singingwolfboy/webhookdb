@@ -1,36 +1,29 @@
 # coding=utf-8
 from __future__ import unicode_literals, print_function
 
-from datetime import datetime
-from flask import jsonify
-from flask_dance.contrib.github import github
+from flask import request, jsonify, url_for
 import bugsnag
-import requests
 from . import load
-from webhookdb import db
-from webhookdb.replication.repository import create_or_update_repository
-from webhookdb.exceptions import StaleData
+from webhookdb.tasks.repository import sync_repository
+from webhookdb.exceptions import NotFound
 
 
 @load.route('/repos/<owner>/<repo>', methods=["POST"])
 def repository(owner, repo):
-    bugsnag_ctx = {"owner": owner, "repo": repo}
+    inline = bool(request.args.get("inline", False))
+    bugsnag_ctx = {"owner": owner, "repo": repo, "inline": inline}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
-    repo_url = "/repos/{owner}/{repo}".format(owner=owner, repo=repo)
-    repo_resp = github.get(repo_url)
-    if repo_resp.status_code == 404:
-        msg = "Repo {owner}/{repo} not found".format(owner=owner, repo=repo)
-        resp = jsonify({"message": msg})
-        resp.status_code = 502
+
+    if inline:
+        try:
+            sync_repository(owner, repo)
+        except NotFound as exc:
+            return jsonify({"message": exc.message}), 404
+        else:
+            return jsonify({"message": "success"})
+    else:
+        result = sync_repository.delay(owner, repo)
+        resp = jsonify({"message": "queued"})
+        resp.status_code = 202
+        resp.headers["Location"] = url_for("tasks.status", task_id=result.id)
         return resp
-    if not repo_resp.ok:
-        raise requests.exceptions.RequestException(repo_resp.text)
-    repo_obj = repo_resp.json()
-    bugsnag_ctx["obj"] = repo_obj
-    bugsnag.configure_request(meta_data=bugsnag_ctx)
-    try:
-        create_or_update_repository(repo_obj, via="api")
-    except StaleData:
-        return jsonify({"message": "stale data"})
-    db.session.commit()
-    return jsonify({"message": "success"})

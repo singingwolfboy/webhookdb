@@ -1,7 +1,6 @@
 # coding=utf-8
 from __future__ import unicode_literals
 from datetime import datetime
-from flask.ext.sqlalchemy import SQLAlchemy
 from sqlalchemy.ext.hybrid import hybrid_property
 from sqlalchemy import func
 from flask_dance.models import OAuthConsumerMixin

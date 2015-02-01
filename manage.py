@@ -2,7 +2,7 @@
 import flask
 from flask.ext.script import Manager, prompt_bool
 import sqlalchemy
-from webhookdb import create_app, db
+from webhookdb import create_app, db, celery
 from webhookdb.models import OAuth, User, Repository, PullRequest
 
 manager = Manager(create_app)
@@ -32,10 +32,18 @@ def sql():
     db.metadata.create_all(engine, checkfirst=False)
 
 
+@manager.command
+def worker():
+    "Start a Celery worker"
+    worker = celery.Worker()
+    worker.start()
+
+
 @manager.shell
 def make_shell_context():
     return dict(
-        app=flask.current_app, db=db, OAuth=OAuth,
+        app=flask.current_app, celery=celery,
+        db=db, OAuth=OAuth,
         User=User, Repository=Repository, PullRequest=PullRequest,
     )
 
