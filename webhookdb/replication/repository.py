@@ -6,7 +6,6 @@ from iso8601 import parse_date
 from flask import request
 import bugsnag
 from . import replication
-from .user import create_or_update_user
 from webhookdb import db
 from webhookdb.models import Repository
 from webhookdb.tasks.repository import process_repository
