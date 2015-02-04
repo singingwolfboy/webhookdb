@@ -1,13 +1,9 @@
 # coding=utf-8
 from __future__ import unicode_literals, print_function
 
-from datetime import datetime
-from iso8601 import parse_date
-from flask import request
+from flask import request, jsonify
 import bugsnag
 from . import replication
-from webhookdb import db
-from webhookdb.models import Repository
 from webhookdb.tasks.repository import process_repository
 from webhookdb.exceptions import StaleData, MissingData
 
