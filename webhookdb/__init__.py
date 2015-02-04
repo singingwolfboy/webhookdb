@@ -25,8 +25,8 @@ def create_app():
     app = Flask(__name__)
     handle_exceptions(app)
     app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///github.db")
-    app.config["CELERY_BROKER_URL"] = os.environ.get("REDISCLOUD_URL", "redis://")
-    app.config["CELERY_RESULT_BACKEND"] = app.config["CELERY_BROKER_URL"]
+    app.config["CELERY_BROKER_URL"] = os.environ.get("CLOUDAMQP_URL", "amqp://")
+    app.config["CELERY_RESULT_BACKEND"] = os.environ.get("REDISCLOUD_URL", "redis://")
     app.config["CELERY_ACCEPT_CONTENT"] = ["json"]
     app.config["CELERY_TASK_SERIALIZER"] = "json"
     app.config["CELERY_EAGER_PROPAGATES_EXCEPTIONS"] = True

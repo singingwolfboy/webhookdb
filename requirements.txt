@@ -5,6 +5,7 @@ Flask-Script
 Flask-SSLify
 celery==3.1.17
 redis==2.10.3
+librabbitmq==1.6.1
 blinker
 requests==2.5.0
 bugsnag

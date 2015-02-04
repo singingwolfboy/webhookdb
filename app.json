@@ -27,6 +27,7 @@
   "addons": [
     "heroku-postgresql",
     "bugsnag",
-    "rediscloud"
+    "rediscloud",
+    "cloudamqp"
   ]
 }
