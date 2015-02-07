@@ -164,8 +164,8 @@ def spawn_page_tasks_for_pull_requests(owner, repo, state="all", per_page=100):
         state=state, per_page=per_page,
     )
     resp = fetch_url_from_github(pr_list_url, method="HEAD")
-    last_page_url = URLObject(resp.links['last']['url'])
-    last_page_num = int(last_page_url.query.dict['page'])
+    last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
+    last_page_num = int(last_page_url.query.dict.get('page', 1))
     g = group(
         sync_page_of_pull_requests.s(
             owner=owner, repo=repo, state=state, per_page=per_page, page=page

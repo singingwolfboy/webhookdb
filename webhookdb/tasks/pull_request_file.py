@@ -111,8 +111,8 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number, per_page=100):
     )
     # first, make sure we get a response from Github
     resp = fetch_url_from_github(prf_list_url, method="HEAD")
-    last_page_url = URLObject(resp.links['last']['url'])
-    last_page_num = int(last_page_url.query.dict['page'])
+    last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
+    last_page_num = int(last_page_url.query.dict.get('page', 1))
 
     # Then, clear all old pull request files for this PR from the DB
     # get the pull request object from the database
