@@ -5,9 +5,9 @@ from datetime import datetime
 from iso8601 import parse_date
 from webhookdb import db
 from webhookdb.models import Repository
-from webhookdb.exceptions import RateLimited, NotFound, StaleData, MissingData
+from webhookdb.exceptions import NotFound, StaleData, MissingData
 from sqlalchemy.exc import IntegrityError
-from webhookdb.tasks import celery, github, logger
+from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
 from .user import process_user
 

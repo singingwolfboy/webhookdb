@@ -2,7 +2,6 @@
 from __future__ import unicode_literals, print_function
 
 from datetime import datetime
-from flask import request, jsonify, url_for
 from celery import group
 from webhookdb import db
 from webhookdb.models import PullRequestFile, Repository, PullRequest
@@ -10,10 +9,8 @@ from webhookdb.exceptions import (
     MissingData, StaleData, NotFound, NothingToDo, DatabaseError
 )
 from sqlalchemy.exc import IntegrityError
-from webhookdb.tasks import celery, github, logger
+from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
-from webhookdb.tasks.user import process_user
-from webhookdb.tasks.repository import process_repository
 from urlobject import URLObject
 
 
