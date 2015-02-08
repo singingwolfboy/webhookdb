@@ -57,7 +57,7 @@ def process_repository(repo_data, via="webhook", fetched_at=None, commit=True):
             if hasattr(repo, login_field):
                 setattr(repo, login_field, user_data["login"])
             try:
-                process_user(user_data, via=via, fetched_at=fetched_at, commit=False)
+                process_user(user_data, via=via, fetched_at=fetched_at)
             except StaleData:
                 pass
         else:

@@ -62,7 +62,7 @@ def process_pull_request(pr_data, via="webhook", fetched_at=None, commit=True):
             if hasattr(pr, login_field):
                 setattr(pr, login_field, user_data["login"])
             try:
-                process_user(user_data, via=via, fetched_at=fetched_at, commit=False)
+                process_user(user_data, via=via, fetched_at=fetched_at)
             except StaleData:
                 pass
         else:
@@ -83,7 +83,7 @@ def process_pull_request(pr_data, via="webhook", fetched_at=None, commit=True):
         if repo_data:
             setattr(pr, repo_id_field, repo_data["id"])
             try:
-                process_repository(repo_data, via=via, fetched_at=fetched_at, commit=False)
+                process_repository(repo_data, via=via, fetched_at=fetched_at)
             except StaleData:
                 pass
         else:
