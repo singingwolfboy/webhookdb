@@ -30,6 +30,7 @@ def create_app():
     app.config["CELERY_ACCEPT_CONTENT"] = ["json"]
     app.config["CELERY_TASK_SERIALIZER"] = "json"
     app.config["CELERY_EAGER_PROPAGATES_EXCEPTIONS"] = True
+    app.config["BROKER_POOL_LIMIT"] = 1  # recommended by CloudAMQP for their free plan
     app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secrettoeveryone")
 
     db.init_app(app)
