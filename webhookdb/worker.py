@@ -9,4 +9,4 @@ If celery ever gets this capability, this file can be deleted.
 
 from webhookdb import create_celery_app
 
-application = create_celery_app()
+application = create_celery_app(config="worker")

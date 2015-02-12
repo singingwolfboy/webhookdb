@@ -6,6 +6,7 @@ from webhookdb import create_app, db, celery
 from webhookdb.models import OAuth, User, Repository, PullRequest
 
 manager = Manager(create_app)
+manager.add_option('-c', '--config', dest='config', required=False)
 
 
 @manager.command

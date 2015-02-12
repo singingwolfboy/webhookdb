@@ -21,17 +21,16 @@ from celery import Celery
 db = SQLAlchemy()
 celery = Celery()
 
-def create_app():
+def expand_config(name):
+    if not name:
+        name = "default"
+    return "webhookdb.config.{classname}Config".format(classname=name.capitalize())
+
+
+def create_app(config="default"):
     app = Flask(__name__)
     handle_exceptions(app)
-    app.config["SQLALCHEMY_DATABASE_URI"] = os.environ.get("DATABASE_URL", "sqlite:///github.db")
-    app.config["CELERY_BROKER_URL"] = os.environ.get("CLOUDAMQP_URL", "amqp://")
-    app.config["CELERY_RESULT_BACKEND"] = os.environ.get("REDISCLOUD_URL", "redis://")
-    app.config["CELERY_ACCEPT_CONTENT"] = ["json"]
-    app.config["CELERY_TASK_SERIALIZER"] = "json"
-    app.config["CELERY_EAGER_PROPAGATES_EXCEPTIONS"] = True
-    app.config["BROKER_POOL_LIMIT"] = 1  # recommended by CloudAMQP for their free plan
-    app.secret_key = os.environ.get("FLASK_SECRET_KEY", "secrettoeveryone")
+    app.config.from_object(expand_config(config))
 
     db.init_app(app)
     create_celery_app(app)
@@ -56,11 +55,11 @@ def create_app():
     return app
 
 
-def create_celery_app(app=None):
+def create_celery_app(app=None, config="worker"):
     """
     adapted from http://flask.pocoo.org/docs/0.10/patterns/celery/
     """
-    app = app or create_app()
+    app = app or create_app(config=config)
     celery.main = app.import_name
     celery.conf["BROKER_URL"] = app.config["CELERY_BROKER_URL"]
     celery.conf.update(app.config)

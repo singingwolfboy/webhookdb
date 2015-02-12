@@ -28,6 +28,6 @@
     "heroku-postgresql",
     "bugsnag",
     "rediscloud",
-    "cloudamqp"
+    "rabbitmq-bigwig"
   ]
 }
