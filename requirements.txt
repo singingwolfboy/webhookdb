@@ -8,6 +8,7 @@ redis==2.10.3
 librabbitmq==1.6.1
 blinker
 requests==2.5.0
+git+https://github.com/singingwolfboy/requests-oauthlib.git@allow-setting-values-after-initialization#egg=requests_oauthlib
 bugsnag
 gunicorn==19.1.1
 psycopg2==2.5.4
