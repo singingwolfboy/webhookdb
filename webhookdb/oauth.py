@@ -13,17 +13,6 @@ from webhookdb.models import OAuth
 from webhookdb.exceptions import RateLimited
 
 
-# Check for required environment variables
-
-req_env_vars = {"GITHUB_CLIENT_ID", "GITHUB_CLIENT_SECRET"}
-missing = req_env_vars - set(os.environ.keys())
-if missing:
-    raise Exception(
-        "You must define the following variables in your environment: {vars} "
-        "See the README for more information.".format(vars=", ".join(missing))
-    )
-
-
 class GithubSession(OAuth2SessionWithBaseURL):
     """
     A requests.Session subclass with a few special properties:
@@ -47,8 +36,6 @@ class GithubSession(OAuth2SessionWithBaseURL):
 
 
 github_bp = make_github_blueprint(
-    client_id=os.environ["GITHUB_CLIENT_ID"],
-    client_secret=os.environ["GITHUB_CLIENT_SECRET"],
     scope="write:repo_hook",
     redirect_to="ui.index",
     session_class=GithubSession,
