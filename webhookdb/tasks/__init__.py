@@ -26,4 +26,5 @@ github = github_bp.session
 # to the `task_prerun` signal, so it happens before each task.
 @task_prerun.connect
 def load_github_oauth_token(sender, task_id, task, args, kwargs, **extra):
-    github_bp.load_token()
+    github_bp.before_app_request(github_bp.load_config)
+    github_bp.before_app_request(github_bp.load_token)
