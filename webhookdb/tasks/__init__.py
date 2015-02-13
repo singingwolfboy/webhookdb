@@ -1,6 +1,7 @@
 # coding=utf-8
 from __future__ import unicode_literals, print_function
 
+import logging
 from webhookdb import celery
 from webhookdb.oauth import github_bp
 from celery.utils.log import get_task_logger
@@ -9,6 +10,7 @@ from flask import Blueprint, jsonify
 
 # set up logging
 logger = get_task_logger(__name__)
+logger.setLevel(logging.INFO)
 
 # create a Flask blueprint for getting task status info
 tasks = Blueprint('tasks', __name__)
@@ -22,7 +24,7 @@ def status(task_id):
 # session proxies, so we'll explicitly define the Github session here.
 github = github_bp.session
 
-# We also have to explicitly connect the `assign_token_to_session` method
+# We also have to explicitly connect the `load_token` and `load_config` methods
 # to the `task_prerun` signal, so it happens before each task.
 @task_prerun.connect
 def load_github_oauth_token(sender, task_id, task, args, kwargs, **extra):
