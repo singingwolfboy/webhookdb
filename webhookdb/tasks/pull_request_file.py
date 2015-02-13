@@ -9,6 +9,7 @@ from webhookdb.exceptions import (
     MissingData, StaleData, NotFound, NothingToDo, DatabaseError
 )
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
 from urlobject import URLObject
