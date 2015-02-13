@@ -12,7 +12,7 @@ def fetch_url_from_github(self, url, **kwargs):
         method = kwargs.pop("method")
     else:
         method = "GET"
-    logger.debug("{method} {url}".format(method=method, url=url))
+    logger.info("{method} {url}".format(method=method, url=url))
     if method.upper() == "HEAD":
         kwargs.setdefault("allow_redirects", False)
     try:
