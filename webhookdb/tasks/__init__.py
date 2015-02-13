@@ -5,7 +5,6 @@ import logging
 from webhookdb import celery
 from webhookdb.oauth import github_bp
 from celery.utils.log import get_task_logger
-from celery.signals import task_prerun
 from flask import Blueprint, jsonify
 
 # set up logging
@@ -23,10 +22,3 @@ def status(task_id):
 # Working in a Celery task means we can't take advantage of Flask-Dance's
 # session proxies, so we'll explicitly define the Github session here.
 github = github_bp.session
-
-# We also have to explicitly connect the `load_token` and `load_config` methods
-# to the `task_prerun` signal, so it happens before each task.
-@task_prerun.connect
-def load_github_oauth_token(sender, task_id, task, args, kwargs, **extra):
-    github_bp.before_app_request(github_bp.load_config)
-    github_bp.before_app_request(github_bp.load_token)
