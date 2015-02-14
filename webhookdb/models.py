@@ -2,7 +2,8 @@
 from __future__ import unicode_literals
 from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy import func
+from sqlalchemy import func, join, and_
+from sqlalchemy_utils.types.color import ColorType
 from flask_dance.models import OAuthConsumerMixin
 from webhookdb import db
 
@@ -106,6 +107,13 @@ class Repository(db.Model, ReplicationTimestampMixin):
     open_issues_count = db.Column(db.Integer)
     default_branch = db.Column(db.String(256))
 
+    labels = db.relationship(
+        "IssueLabel",
+        primaryjoin="Repository.id == IssueLabel.repo_id",
+        foreign_keys="Repository.id",
+        uselist=True,
+    )
+
     @hybrid_property
     def full_name(self):
         return "{owner_login}/{name}".format(
@@ -124,6 +132,35 @@ class Repository(db.Model, ReplicationTimestampMixin):
 
     def __str__(self):
         return unicode(self).encode('utf-8')
+
+
+class Milestone(db.Model, ReplicationTimestampMixin):
+    __tablename__ = "webhookdb_milestone"
+
+    number = db.Column(db.Integer, primary_key=True)
+    repo_id = db.Column(db.Integer, primary_key=True)
+    repo = db.relationship(
+        Repository,
+        primaryjoin=(repo_id == Repository.id),
+        foreign_keys=repo_id,
+    )
+    state = db.Column(db.String(64))
+    title = db.Column(db.String(256))
+    description = db.Column(db.Text)
+    creator_id = db.Column(db.Integer, index=True)
+    creator_login = db.Column(db.String(256))
+    creator = db.relationship(
+        User,
+        primaryjoin=(creator_id == User.id),
+        foreign_keys=creator_id,
+        remote_side=User.id,
+    )
+    open_issues_count = db.Column(db.Integer)
+    closed_issues_count = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime)
+    closed_at = db.Column(db.DateTime)
+    due_at = db.Column(db.DateTime)
 
 
 class PullRequest(db.Model, ReplicationTimestampMixin):
@@ -156,7 +193,6 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         foreign_keys=assignee_id,
         remote_side=User.id,
     )
-    milestone = db.Column(db.String(256))
     base_repo_id = db.Column(db.Integer, index=True)
     base_repo = db.relationship(
         Repository,
@@ -173,6 +209,15 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         remote_side=Repository.id,
     )
     head_ref = db.Column(db.String(256))
+    milestone_number = db.Column(db.Integer)
+    milestone = db.relationship(
+        Milestone,
+        primaryjoin=and_(
+            milestone_number == Milestone.number,
+            head_repo_id == Milestone.repo_id
+        ),
+        foreign_keys=[milestone_number, head_repo_id],
+    )
     merged = db.Column(db.Boolean)
     mergable = db.Column(db.Boolean)
     mergable_state = db.Column(db.String(64))
@@ -184,8 +229,8 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         foreign_keys=merged_by_id,
         remote_side=User.id,
     )
-    comments = db.Column(db.Integer)
-    review_comments = db.Column(db.Integer)
+    comments_count = db.Column(db.Integer)
+    review_comments_count = db.Column(db.Integer)
     commits = db.Column(db.Integer)
     additions = db.Column(db.Integer)
     deletions = db.Column(db.Integer)
@@ -223,3 +268,98 @@ class PullRequestFile(db.Model, ReplicationTimestampMixin):
 
     def __str__(self):
         return unicode(self).encode('utf-8')
+
+
+class IssueLabel(db.Model, ReplicationTimestampMixin):
+    __tablename__ = "webhookdb_issue_label"
+
+    repo_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(256), primary_key=True)
+    color = db.Column(ColorType)
+
+    repo = db.relationship(
+        Repository,
+        primaryjoin=(repo_id == Repository.id),
+        foreign_keys=repo_id,
+        remote_side=Repository.id,
+    )
+
+    def __unicode__(self):
+        return self.name
+
+    def __str__(self):
+        return unicode(self).encode('utf-8')
+
+    def __repr__(self):
+        return "<{cls} {name} {repo}>".format(
+            cls=self.__class__.__name__,
+            name=self.name,
+            repo=self.repo,
+        )
+
+
+label_association_table = db.Table("webhookdb_issue_label_association", db.Model.metadata,
+    db.Column("issue_id", db.Integer, db.ForeignKey("webhookdb_issue.id")),
+    db.Column("label_name", db.String(256), db.ForeignKey(IssueLabel.name)),
+)
+
+
+class Issue(db.Model, ReplicationTimestampMixin):
+    __tablename__ = "webhookdb_issue"
+
+    id = db.Column(db.Integer, primary_key=True)
+    repo_id = db.Column(db.Integer, index=True)
+    repo = db.relationship(
+        Repository,
+        primaryjoin=(repo_id == Repository.id),
+        foreign_keys=repo_id,
+    )
+    number = db.Column(db.Integer)
+    state = db.Column(db.String(64))
+    title = db.Column(db.String(256))
+    body = db.Column(db.Text)
+    user_id = db.Column(db.Integer, index=True)
+    user_login = db.Column(db.String(256))
+    user = db.relationship(
+        User,
+        primaryjoin=(user_id == User.id),
+        foreign_keys=user_id,
+        remote_side=User.id,
+    )
+    labels = db.relationship(
+        IssueLabel,
+        secondary=label_association_table,
+        primaryjoin=and_(
+            label_association_table.c.label_name == IssueLabel.name,
+            repo_id == IssueLabel.repo_id
+        ),
+        backref="issues",
+    )
+    assignee_id = db.Column(db.Integer, index=True)
+    assignee_login = db.Column(db.String(256))
+    assignee = db.relationship(
+        User,
+        primaryjoin=(assignee_id == User.id),
+        foreign_keys=assignee_id,
+        remote_side=User.id,
+    )
+    milestone_number = db.Column(db.Integer)
+    milestone = db.relationship(
+        Milestone,
+        primaryjoin=and_(
+            milestone_number == Milestone.number,
+            repo_id == Milestone.repo_id
+        ),
+        foreign_keys=[milestone_number, repo_id],
+    )
+    comments_count = db.Column(db.Integer)
+    created_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime)
+    closed_at = db.Column(db.DateTime)
+    closed_by_id = db.Column(db.Integer, index=True)
+    closed_by_login = db.Column(db.String(256))
+    closed_by = db.relationship(
+        User,
+        primaryjoin=(closed_by_id == User.id),
+        foreign_keys=closed_by_id,
+    )

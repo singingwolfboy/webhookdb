@@ -3,7 +3,10 @@ import flask
 from flask.ext.script import Manager, prompt_bool
 import sqlalchemy
 from webhookdb import create_app, db, celery
-from webhookdb.models import OAuth, User, Repository, PullRequest
+from webhookdb.models import (
+    OAuth, User, Repository, Milestone, PullRequest, PullRequestFile,
+    IssueLabel, Issue
+)
 
 manager = Manager(create_app)
 manager.add_option('-c', '--config', dest='config', required=False)
@@ -45,7 +48,9 @@ def make_shell_context():
     return dict(
         app=flask.current_app, celery=celery,
         db=db, OAuth=OAuth,
-        User=User, Repository=Repository, PullRequest=PullRequest,
+        User=User, Repository=Repository, Milestone=Milestone,
+        PullRequest=PullRequest, PullRequestFile=PullRequestFile,
+        IssueLabel=IssueLabel, Issue=Issue,
     )
 
 
