@@ -13,12 +13,12 @@ from webhookdb.tasks.user import process_user
 
 
 def process_label(label_data, via="webhook", fetched_at=None, commit=True,
-                  repo=None):
+                  repo_id=None):
     name = label_data.get("name")
     if not name:
         raise MissingData("no label name")
 
-    if not repo:
+    if not repo_id:
         url = milestone_data.get("url")
         if not url:
             raise MissingData("no label url")
@@ -54,12 +54,13 @@ def process_label(label_data, via="webhook", fetched_at=None, commit=True,
                 "owner": owner,
                 "repo": repo,
             })
+        repo_id = repo.id
 
     # fetch the object from the database,
     # or create it if it doesn't exist in the DB
-    label = IssueLabel.query.get((repo.id, name))
+    label = IssueLabel.query.get((repo_id, name))
     if not label:
-        label = IssueLabel(repo_id=repo.id, name=name)
+        label = IssueLabel(repo_id=repo_id, name=name)
 
     # should we update the object?
     fetched_at = fetched_at or datetime.now()
@@ -129,14 +130,14 @@ def sync_page_of_labels(self, owner, repo, per_page=100, page=1):
     fetched_at = datetime.now()
     label_data_list = resp.json()
     results = []
-    repo = None
+    repo_id = None
     for label_data in label_data_list:
         try:
             label = process_label(
                 label_data, via="api", fetched_at=fetched_at, commit=True,
-                repo=repo,
+                repo_id=repo_id,
             )
-            repo = repo or label.repo
+            repo_id = repo_id or label.repo_id
             results.append(label)
         except IntegrityError as exc:
             self.retry(exc=exc)

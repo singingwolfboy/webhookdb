@@ -13,12 +13,12 @@ from webhookdb.tasks.user import process_user
 
 
 def process_milestone(milestone_data, via="webhook", fetched_at=None, commit=True,
-                      repo=None):
+                      repo_id=None):
     number = milestone_data.get("number")
     if not number:
         raise MissingData("no milestone number")
 
-    if not repo:
+    if not repo_id:
         url = milestone_data.get("url")
         if not url:
             raise MissingData("no milestone url")
@@ -54,12 +54,13 @@ def process_milestone(milestone_data, via="webhook", fetched_at=None, commit=Tru
                 "owner": owner,
                 "repo": repo,
             })
+        repo_id = repo.id
 
     # fetch the object from the database,
     # or create it if it doesn't exist in the DB
-    milestone = Milestone.query.get((repo.id, number))
+    milestone = Milestone.query.get((repo_id, number))
     if not milestone:
-        milestone = Milestone(repo_id=repo.id, number=number)
+        milestone = Milestone(repo_id=repo_id, number=number)
 
     # should we update the object?
     fetched_at = fetched_at or datetime.now()
@@ -165,14 +166,14 @@ def sync_page_of_milestones(self, owner, repo, state="all", per_page=100, page=1
     fetched_at = datetime.now()
     milestone_data_list = resp.json()
     results = []
-    repo = None
+    repo_id = None
     for milestone_data in milestone_data_list:
         try:
             milestone = process_milestone(
                 milestone_data, via="api", fetched_at=fetched_at, commit=True,
-                repo=repo,
+                repo_id=repo_id,
             )
-            repo = repo or milestone.repo
+            repo_id = repo_id or milestone.repo_id
             results.append(milestone)
         except IntegrityError as exc:
             self.retry(exc=exc)
