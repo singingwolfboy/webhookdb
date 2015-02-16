@@ -8,4 +8,5 @@ load = Blueprint('load', __name__)
 from .repository import repository
 from .pull_request import pull_request, pull_requests
 from .pull_request_file import pull_request_files
+from .milestone import milestone, milestones
 from .ratelimit import attach_ratelimit_headers, request_rate_limited

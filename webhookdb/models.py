@@ -137,13 +137,13 @@ class Repository(db.Model, ReplicationTimestampMixin):
 class Milestone(db.Model, ReplicationTimestampMixin):
     __tablename__ = "webhookdb_milestone"
 
-    number = db.Column(db.Integer, primary_key=True)
     repo_id = db.Column(db.Integer, primary_key=True)
     repo = db.relationship(
         Repository,
         primaryjoin=(repo_id == Repository.id),
         foreign_keys=repo_id,
     )
+    number = db.Column(db.Integer, primary_key=True)
     state = db.Column(db.String(64))
     title = db.Column(db.String(256))
     description = db.Column(db.Text)
