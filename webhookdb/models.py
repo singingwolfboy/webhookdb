@@ -184,7 +184,6 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
     updated_at = db.Column(db.DateTime)
     closed_at = db.Column(db.DateTime)
     merged_at = db.Column(db.DateTime)
-    merge_commit_sha = db.Column(db.String(40))
     assignee_id = db.Column(db.Integer, index=True)
     assignee_login = db.Column(db.String(256))
     assignee = db.relationship(

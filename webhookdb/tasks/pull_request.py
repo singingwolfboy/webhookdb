@@ -43,8 +43,7 @@ def process_pull_request(pr_data, via="webhook", fetched_at=None, commit=True):
 
     # update the object
     fields = (
-        "number", "state", "locked", "title", "body", "merge_commit_sha",
-        "milestone", "merged", "mergeable", "mergeable_state",
+        "number", "state", "locked", "title", "body", "merged", "mergeable",
         "comments", "review_comments", "commits", "additions", "deletions",
         "changed_files",
     )
