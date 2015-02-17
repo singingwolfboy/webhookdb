@@ -33,21 +33,30 @@ def process_pull_request(pr_data, via="webhook", fetched_at=None, commit=True):
     if pr.last_replicated_at > fetched_at:
         raise StaleData()
 
+    # Most fields have the same name in our model as they do in Github's API.
+    # However, some are different. This mapping contains just the differences.
+    field_to_model = {
+        "comments": "comments_count",
+        "review_comments": "review_comments_count",
+        "commits": "commits_count",
+    }
+
     # update the object
     fields = (
-        "number", "state", "locked", "title", "body", "merge_commit_sha",
-        "milestone", "merged", "mergeable", "mergeable_state",
+        "number", "state", "locked", "title", "body", "merged", "mergeable",
         "comments", "review_comments", "commits", "additions", "deletions",
         "changed_files",
     )
     for field in fields:
         if field in pr_data:
-            setattr(pr, field, pr_data[field])
+            mfield = field_to_model.get(field, field)
+            setattr(pr, mfield, pr_data[field])
     dt_fields = ("created_at", "updated_at", "closed_at", "merged_at")
     for field in dt_fields:
         if pr_data.get(field):
             dt = parse_date(pr_data[field]).replace(tzinfo=None)
-            setattr(pr, field, dt)
+            mfield = field_to_model.get(field, field)
+            setattr(pr, mfield, dt)
 
     # user references
     user_fields = ("user", "assignee", "merged_by")

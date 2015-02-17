@@ -13,3 +13,5 @@ bugsnag
 gunicorn==19.1.1
 psycopg2==2.5.4
 iso8601
+sqlalchemy_utils==0.29.5
+colour==0.0.6

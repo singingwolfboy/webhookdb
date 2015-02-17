@@ -26,6 +26,15 @@ def process_user(user_data, via="webhook", fetched_at=None, commit=True):
     if user.last_replicated_at > fetched_at:
         raise StaleData()
 
+    # Most fields have the same name in our model as they do in Github's API.
+    # However, some are different. This mapping contains just the differences.
+    field_to_model = {
+        "public_repos": "public_repos_count",
+        "public_gists": "public_gists_count",
+        "followers": "followers_count",
+        "following": "following_count",
+    }
+
     # update the object
     fields = (
         "login", "site_admin", "name", "company", "blog", "location",
@@ -34,7 +43,8 @@ def process_user(user_data, via="webhook", fetched_at=None, commit=True):
     )
     for field in fields:
         if field in user_data:
-            setattr(user, field, user_data[field])
+            mfield = field_to_model.get(field, field)
+            setattr(user, mfield, user_data[field])
     dt_fields = ("created_at", "updated_at")
     for field in dt_fields:
         if user_data.get(field):
