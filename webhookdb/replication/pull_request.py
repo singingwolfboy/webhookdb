@@ -4,6 +4,7 @@ from __future__ import unicode_literals, print_function
 from flask import request, jsonify
 import bugsnag
 from . import replication
+from webhookdb.models import PullRequestFile
 from webhookdb.exceptions import MissingData, StaleData
 from webhookdb.tasks.pull_request import process_pull_request
 from webhookdb.tasks.pull_request_file import (
@@ -32,6 +33,7 @@ def pull_request():
     # Fetch the pull request files, too!
     if pr.changed_files < 100:
         # If there are fewer than 100, do it inline
+        PullRequestFile.query.filter_by(pull_request_id=pr.id).delete()
         sync_page_of_pull_request_files(
             owner=pr.base_repo.owner_login, repo=pr.base_repo.name,
             number=pr.number, pr_id=pr.id,
