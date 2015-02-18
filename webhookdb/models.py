@@ -332,6 +332,7 @@ class Issue(db.Model, ReplicationTimestampMixin):
             label_association_table.c.label_name == IssueLabel.name,
             repo_id == IssueLabel.repo_id
         ),
+        secondaryjoin=(id == label_association_table.c.issue_id),
         backref="issues",
     )
     assignee_id = db.Column(db.Integer, index=True)
