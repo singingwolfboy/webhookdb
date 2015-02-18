@@ -298,8 +298,8 @@ class IssueLabel(db.Model, ReplicationTimestampMixin):
 
 
 label_association_table = db.Table("webhookdb_issue_label_association", db.Model.metadata,
-    db.Column("issue_id", db.Integer, db.ForeignKey("webhookdb_issue.id")),
-    db.Column("label_name", db.String(256), db.ForeignKey(IssueLabel.name)),
+    db.Column("issue_id", db.Integer, index=True),
+    db.Column("label_name", db.String(256), index=True),
 )
 
 
