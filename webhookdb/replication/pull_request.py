@@ -6,7 +6,9 @@ import bugsnag
 from . import replication
 from webhookdb.exceptions import MissingData, StaleData
 from webhookdb.tasks.pull_request import process_pull_request
-from webhookdb.tasks.pull_request_file import spawn_page_tasks_for_pull_request_files
+from webhookdb.tasks.pull_request_file import (
+    sync_page_of_pull_request_files, spawn_page_tasks_for_pull_request_files
+)
 
 
 @replication.route('/pull_request', methods=["POST"])
@@ -28,8 +30,16 @@ def pull_request():
         return jsonify({"message": "stale data"})
 
     # Fetch the pull request files, too!
-    spawn_page_tasks_for_pull_request_files.delay(
-        pr.base_repo.owner_login, pr.base_repo.name, pr.number
-    )
+    if pr.changed_files < 100:
+        # If there are fewer than 100, do it inline
+        sync_page_of_pull_request_files(
+            owner=pr.base_repo.owner_login, repo=pr.base_repo.name,
+            number=pr.number, pr_id=pr.id,
+        )
+    else:
+        # otherwise, spawn tasks
+        spawn_page_tasks_for_pull_request_files.delay(
+            pr.base_repo.owner_login, pr.base_repo.name, pr.number
+        )
 
     return jsonify({"message": "success"})
