@@ -12,6 +12,7 @@ sys.stderr = codecs.getwriter('utf-8')(sys.stderr)
 import os
 
 from flask import Flask
+import bugsnag
 from bugsnag.flask import handle_exceptions
 from bugsnag.celery import connect_failure_handler
 from flask.ext.sqlalchemy import SQLAlchemy
@@ -20,6 +21,7 @@ from celery import Celery
 
 db = SQLAlchemy()
 celery = Celery()
+
 
 def expand_config(name):
     if not name:
@@ -71,4 +73,9 @@ def create_celery_app(app=None, config="worker"):
                 return TaskBase.__call__(self, *args, **kwargs)
     celery.Task = ContextTask
     connect_failure_handler()
+    bugsnag.configure(ignore_classes=[
+        "webhookdb.exceptions.StaleData",
+        "webhookdb.exceptions.NothingToDo",
+        "webhookdb.exceptions.RateLimited",
+    ])
     return celery
