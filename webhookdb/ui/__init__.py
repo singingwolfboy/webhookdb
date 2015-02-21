@@ -27,27 +27,29 @@ def install():
         return resp
 
     secure = request.is_secure or request.headers.get("X-Forwarded-Proto", "http") == "https"
-    api_url = url_for(
-        "replication.pull_request", _external=True,
-        _scheme="https" if secure else "http",
-    )
-    url = "/repos/{repo}/hooks".format(repo=repo)
-    body = {
-        "name": "web",
-        "events": ["pull_request"],
-        "config": {
-            "url": api_url,
-            "content_type": "json",
+    hook_url = "/repos/{repo}/hooks".format(repo=repo)
+    for event in ("pull_request", "issue"):
+        api_url = url_for(
+            "replication.{endpoint}".format(endpoint=event),
+            _external=True,
+            _scheme="https" if secure else "http",
+        )
+        body = {
+            "name": "web",
+            "events": [event],
+            "config": {
+                "url": api_url,
+                "content_type": "json",
+            }
         }
-    }
-    bugsnag_context = {"repo": repo, "body": body}
-    bugsnag.configure_request(meta_data=bugsnag_context)
+        bugsnag_context = {"repo": repo, "body": body}
+        bugsnag.configure_request(meta_data=bugsnag_context)
 
-    hook_resp = github.post(url, json=body)
-    if not hook_resp.ok:
-        error_obj = hook_resp.json()
-        resp = jsonify({"error": error_obj["message"]})
-        resp.status_code = 503
-        return resp
+        hook_resp = github.post(hook_url, json=body)
+        if not hook_resp.ok:
+            error_obj = hook_resp.json()
+            resp = jsonify({"error": error_obj["message"]})
+            resp.status_code = 503
+            return resp
 
     return jsonify({"message": "success"})

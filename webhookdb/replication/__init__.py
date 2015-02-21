@@ -7,6 +7,7 @@ replication = Blueprint('replication', __name__)
 
 from .repository import repository
 from .pull_request import pull_request
+from .issue import issue
 
 @replication.before_request
 def ping():
