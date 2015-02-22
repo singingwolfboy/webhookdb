@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, print_function
 
 from datetime import datetime
+from celery import group
 from urlobject import URLObject
 from webhookdb import db, celery
 from webhookdb.models import IssueLabel, Repository
@@ -72,7 +73,7 @@ def process_label(label_data, via="webhook", fetched_at=None, commit=True,
     )
     for field in fields:
         if field in label_data:
-            setattr(milestone, field, label_data[field])
+            setattr(label, field, label_data[field])
 
     # update replication timestamp
     replicated_dt_field = "last_replicated_via_{}_at".format(via)
