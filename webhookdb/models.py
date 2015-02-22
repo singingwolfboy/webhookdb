@@ -41,7 +41,7 @@ class ReplicationTimestampMixin(object):
 
 
 class User(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "webhookdb_user"
+    __tablename__ = "github_user"
 
     id = db.Column(db.Integer, primary_key=True)
     login = db.Column(db.String(256))
@@ -68,7 +68,7 @@ class User(db.Model, ReplicationTimestampMixin):
 
 
 class Repository(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "webhookdb_repository"
+    __tablename__ = "github_repository"
 
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256))
@@ -135,7 +135,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
 
 
 class Milestone(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "webhookdb_milestone"
+    __tablename__ = "github_milestone"
 
     repo_id = db.Column(db.Integer, primary_key=True)
     repo = db.relationship(
@@ -164,7 +164,7 @@ class Milestone(db.Model, ReplicationTimestampMixin):
 
 
 class PullRequest(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "webhookdb_pull_request"
+    __tablename__ = "github_pull_request"
 
     id = db.Column(db.Integer, primary_key=True)
     number = db.Column(db.Integer)
@@ -246,7 +246,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
 
 
 class PullRequestFile(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "webhookdb_pull_request_file"
+    __tablename__ = "github_pull_request_file"
 
     sha = db.Column(db.String(40), primary_key=True)
     filename = db.Column(db.String(256))
@@ -270,7 +270,7 @@ class PullRequestFile(db.Model, ReplicationTimestampMixin):
 
 
 class IssueLabel(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "webhookdb_issue_label"
+    __tablename__ = "github_issue_label"
 
     repo_id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(256), primary_key=True)
@@ -297,14 +297,14 @@ class IssueLabel(db.Model, ReplicationTimestampMixin):
         )
 
 
-label_association_table = db.Table("webhookdb_issue_label_association", db.Model.metadata,
+label_association_table = db.Table("github_issue_label_association", db.Model.metadata,
     db.Column("issue_id", db.Integer, index=True),
     db.Column("label_name", db.String(256), index=True),
 )
 
 
 class Issue(db.Model, ReplicationTimestampMixin):
-    __tablename__ = "webhookdb_issue"
+    __tablename__ = "github_issue"
 
     id = db.Column(db.Integer, primary_key=True)
     repo_id = db.Column(db.Integer, index=True)
