@@ -3,6 +3,7 @@ from __future__ import unicode_literals
 from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy import func, and_
+from sqlalchemy.orm import backref
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy_utils.types.color import ColorType
 from webhookdb import db
@@ -74,6 +75,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
         primaryjoin=(owner_id == User.id),
         foreign_keys=owner_id,
         remote_side=User.id,
+        backref="owned_repos",
     )
     organization_id = db.Column(db.Integer, index=True)
     organization_login = db.Column(db.String(256))
@@ -102,12 +104,6 @@ class Repository(db.Model, ReplicationTimestampMixin):
     open_issues_count = db.Column(db.Integer)
     default_branch = db.Column(db.String(256))
 
-    labels = db.relationship(
-        "IssueLabel",
-        primaryjoin="Repository.id == IssueLabel.repo_id",
-        foreign_keys="Repository.id",
-        uselist=True,
-    )
     admin_assocs = db.relationship(
         lambda: UserRepoAssociation,
         primaryjoin=lambda: and_(
@@ -147,14 +143,14 @@ class UserRepoAssociation(db.Model, ReplicationTimestampMixin):
         User,
         primaryjoin=(user_id == User.id),
         foreign_keys=user_id,
-        backref=db.backref("user_repo_assocs", cascade="all, delete-orphan"),
+        backref=backref("user_repo_assocs", cascade="all, delete-orphan"),
     )
     repo_id = db.Column(db.Integer, primary_key=True)
     repo = db.relationship(
         Repository,
         primaryjoin=(repo_id == Repository.id),
         foreign_keys=repo_id,
-        backref=db.backref("user_repo_assocs", cascade="all, delete-orphan"),
+        backref=backref("user_repo_assocs", cascade="all, delete-orphan"),
     )
 
     # permissions
@@ -171,6 +167,7 @@ class Milestone(db.Model, ReplicationTimestampMixin):
         Repository,
         primaryjoin=(repo_id == Repository.id),
         foreign_keys=repo_id,
+        backref="milestones",
     )
     number = db.Column(db.Integer, primary_key=True)
     state = db.Column(db.String(64))
@@ -183,6 +180,7 @@ class Milestone(db.Model, ReplicationTimestampMixin):
         primaryjoin=(creator_id == User.id),
         foreign_keys=creator_id,
         remote_side=User.id,
+        backref="created_milestones",
     )
     open_issues_count = db.Column(db.Integer)
     closed_issues_count = db.Column(db.Integer)
@@ -206,6 +204,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         primaryjoin=(user_id == User.id),
         foreign_keys=user_id,
         remote_side=User.id,
+        backref=backref("created_pull_requests", order_by=number)
     )
     title = db.Column(db.String(256))
     body = db.Column(db.Text)
@@ -220,6 +219,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         primaryjoin=(assignee_id == User.id),
         foreign_keys=assignee_id,
         remote_side=User.id,
+        backref=backref("assigned_pull_requests", order_by=number),
     )
     base_repo_id = db.Column(db.Integer, index=True)
     base_repo = db.relationship(
@@ -227,6 +227,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         primaryjoin=(base_repo_id == Repository.id),
         foreign_keys=base_repo_id,
         remote_side=Repository.id,
+        backref=backref("pull_requests", order_by=number),
     )
     base_ref = db.Column(db.String(256))
     head_repo_id = db.Column(db.Integer, index=True)
@@ -245,6 +246,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
             head_repo_id == Milestone.repo_id
         ),
         foreign_keys=[milestone_number, head_repo_id],
+        backref=backref("pull_requests", order_by=number),
     )
     merged = db.Column(db.Boolean)
     mergable = db.Column(db.Boolean)
@@ -256,6 +258,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         primaryjoin=(merged_by_id == User.id),
         foreign_keys=merged_by_id,
         remote_side=User.id,
+        backref=backref("merged_pull_requests", order_by=number),
     )
     comments_count = db.Column(db.Integer)
     review_comments_count = db.Column(db.Integer)
@@ -310,6 +313,7 @@ class IssueLabel(db.Model, ReplicationTimestampMixin):
         primaryjoin=(repo_id == Repository.id),
         foreign_keys=repo_id,
         remote_side=Repository.id,
+        backref="labels",
     )
 
     def __unicode__(self):
@@ -341,6 +345,7 @@ class Issue(db.Model, ReplicationTimestampMixin):
         Repository,
         primaryjoin=(repo_id == Repository.id),
         foreign_keys=repo_id,
+        backref=backref("issues", order_by=lambda: Issue.number),
     )
     number = db.Column(db.Integer)
     state = db.Column(db.String(64))
@@ -353,6 +358,7 @@ class Issue(db.Model, ReplicationTimestampMixin):
         primaryjoin=(user_id == User.id),
         foreign_keys=user_id,
         remote_side=User.id,
+        backref=backref("created_issues", order_by=lambda: Issue.number),
     )
     labels = db.relationship(
         IssueLabel,
@@ -362,7 +368,7 @@ class Issue(db.Model, ReplicationTimestampMixin):
             repo_id == IssueLabel.repo_id
         ),
         secondaryjoin=(id == label_association_table.c.issue_id),
-        backref="issues",
+        backref=backref("issues", order_by=lambda: Issue.number),
     )
     assignee_id = db.Column(db.Integer, index=True)
     assignee_login = db.Column(db.String(256))
@@ -371,6 +377,7 @@ class Issue(db.Model, ReplicationTimestampMixin):
         primaryjoin=(assignee_id == User.id),
         foreign_keys=assignee_id,
         remote_side=User.id,
+        backref=backref("assigned_issues", order_by=lambda: Issue.number),
     )
     milestone_number = db.Column(db.Integer)
     milestone = db.relationship(
@@ -380,6 +387,7 @@ class Issue(db.Model, ReplicationTimestampMixin):
             repo_id == Milestone.repo_id
         ),
         foreign_keys=[milestone_number, repo_id],
+        backref=backref("issues", order_by=lambda: Issue.number),
     )
     comments_count = db.Column(db.Integer)
     created_at = db.Column(db.DateTime)
@@ -391,4 +399,5 @@ class Issue(db.Model, ReplicationTimestampMixin):
         User,
         primaryjoin=(closed_by_id == User.id),
         foreign_keys=closed_by_id,
+        backref=backref("closed_issues", order_by=lambda: Issue.number),
     )
