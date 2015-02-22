@@ -2,14 +2,13 @@
 from __future__ import unicode_literals, print_function
 
 from datetime import datetime
-from iso8601 import parse_date
 from urlobject import URLObject
 from webhookdb import db, celery
 from webhookdb.models import IssueLabel, Repository
-from webhookdb.exceptions import NotFound, StaleData, MissingData
+from webhookdb.exceptions import NotFound, StaleData, MissingData, DatabaseError
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from webhookdb.tasks.fetch import fetch_url_from_github
-from webhookdb.tasks.user import process_user
 
 
 def process_label(label_data, via="webhook", fetched_at=None, commit=True,
@@ -19,7 +18,7 @@ def process_label(label_data, via="webhook", fetched_at=None, commit=True,
         raise MissingData("no label name")
 
     if not repo_id:
-        url = milestone_data.get("url")
+        url = label_data.get("url")
         if not url:
             raise MissingData("no label url")
 
@@ -42,17 +41,17 @@ def process_label(label_data, via="webhook", fetched_at=None, commit=True,
             )
             raise NotFound(msg, {
                 "type": "label",
-                "owner": owner,
-                "repo": repo,
+                "owner": repo_owner,
+                "repo": repo_name,
             })
         except MultipleResultsFound:
             msg = "Repo {owner}/{repo} found multiple times!".format(
-                owner=owner, repo=repo,
+                owner=repo_owner, repo=repo_name,
             )
             raise DatabaseError(msg, {
                 "type": "label",
-                "owner": owner,
-                "repo": repo,
+                "owner": repo_owner,
+                "repo": repo_name,
             })
         repo_id = repo.id
 

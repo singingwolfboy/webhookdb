@@ -3,11 +3,13 @@ from __future__ import unicode_literals, print_function
 
 from datetime import datetime
 from iso8601 import parse_date
+from celery import group
 from urlobject import URLObject
 from webhookdb import db, celery
-from webhookdb.models import Milestone, Repository, User
-from webhookdb.exceptions import NotFound, StaleData, MissingData
+from webhookdb.models import Milestone, Repository
+from webhookdb.exceptions import NotFound, StaleData, MissingData, DatabaseError
 from sqlalchemy.exc import IntegrityError
+from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.user import process_user
 
@@ -42,17 +44,17 @@ def process_milestone(milestone_data, via="webhook", fetched_at=None, commit=Tru
             )
             raise NotFound(msg, {
                 "type": "milestone",
-                "owner": owner,
-                "repo": repo,
+                "owner": repo_owner,
+                "repo": repo_name,
             })
         except MultipleResultsFound:
             msg = "Repo {owner}/{repo} found multiple times!".format(
-                owner=owner, repo=repo,
+                owner=repo_owner, repo=repo_name,
             )
             raise DatabaseError(msg, {
                 "type": "milestone",
-                "owner": owner,
-                "repo": repo,
+                "owner": repo_owner,
+                "repo": repo_name,
             })
         repo_id = repo.id
 
@@ -99,17 +101,17 @@ def process_milestone(milestone_data, via="webhook", fetched_at=None, commit=Tru
         id_field = "{}_id".format(user_field)
         login_field = "{}_login".format(user_field)
         if user_data:
-            setattr(pr, id_field, user_data["id"])
-            if hasattr(pr, login_field):
-                setattr(pr, login_field, user_data["login"])
+            setattr(milestone, id_field, user_data["id"])
+            if hasattr(milestone, login_field):
+                setattr(milestone, login_field, user_data["login"])
             try:
                 process_user(user_data, via=via, fetched_at=fetched_at)
             except StaleData:
                 pass
         else:
-            setattr(pr, id_field, None)
-            if hasattr(pr, login_field):
-                setattr(pr, login_field, None)
+            setattr(milestone, id_field, None)
+            if hasattr(milestone, login_field):
+                setattr(milestone, login_field, None)
 
     # update replication timestamp
     replicated_dt_field = "last_replicated_via_{}_at".format(via)
