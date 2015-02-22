@@ -2,15 +2,9 @@
 from __future__ import unicode_literals
 from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property
-from sqlalchemy import func, join, and_
+from sqlalchemy import func, and_
 from sqlalchemy_utils.types.color import ColorType
-from flask_dance.models import OAuthConsumerMixin
 from webhookdb import db
-
-
-class OAuth(db.Model, OAuthConsumerMixin):
-    "Used by Flask-Dance"
-    pass
 
 
 class ReplicationTimestampMixin(object):
