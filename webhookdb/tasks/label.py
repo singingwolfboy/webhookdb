@@ -4,6 +4,7 @@ from __future__ import unicode_literals, print_function
 from datetime import datetime
 from celery import group
 from urlobject import URLObject
+from colour import Color
 from webhookdb import db, celery
 from webhookdb.models import IssueLabel, Repository
 from webhookdb.exceptions import NotFound, StaleData, MissingData, DatabaseError
@@ -67,13 +68,13 @@ def process_label(label_data, via="webhook", fetched_at=None, commit=True,
     if label.last_replicated_at > fetched_at:
         raise StaleData()
 
-    # update the object
-    fields = (
-        "color",
-    )
-    for field in fields:
-        if field in label_data:
-            setattr(label, field, label_data[field])
+    # color reference
+    if "color" in label_data:
+        color_hex = label_data["color"]
+        if color_hex:
+            label.color = Color("#{hex}".format(hex=color_hex))
+        else:
+            label.color = None
 
     # update replication timestamp
     replicated_dt_field = "last_replicated_via_{}_at".format(via)
