@@ -1,11 +1,12 @@
 #!/usr/bin/env python
+from __future__ import unicode_literals, print_function
 import flask
 from flask.ext.script import Manager, prompt_bool
 import sqlalchemy
 from webhookdb import create_app, db, celery
 from webhookdb.models import (
-    OAuth, User, Repository, Milestone, PullRequest, PullRequestFile,
-    IssueLabel, Issue
+    OAuth, User, Repository, UserRepoAssociation, Milestone,
+    PullRequest, PullRequestFile, IssueLabel, Issue
 )
 
 manager = Manager(create_app)
@@ -48,8 +49,8 @@ def make_shell_context():
     return dict(
         app=flask.current_app, celery=celery,
         db=db, OAuth=OAuth,
-        User=User, Repository=Repository, Milestone=Milestone,
-        PullRequest=PullRequest, PullRequestFile=PullRequestFile,
+        User=User, Repository=Repository, UserRepoAssociation=UserRepoAssociation,
+        Milestone=Milestone, PullRequest=PullRequest, PullRequestFile=PullRequestFile,
         IssueLabel=IssueLabel, Issue=Issue,
     )
 

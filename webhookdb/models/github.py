@@ -1,8 +1,9 @@
 # coding=utf-8
 from __future__ import unicode_literals
 from datetime import datetime
-from sqlalchemy.ext.hybrid import hybrid_property
+from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy import func, and_
+from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy_utils.types.color import ColorType
 from webhookdb import db
 
@@ -107,6 +108,16 @@ class Repository(db.Model, ReplicationTimestampMixin):
         foreign_keys="Repository.id",
         uselist=True,
     )
+    admin_assocs = db.relationship(
+        lambda: UserRepoAssociation,
+        primaryjoin=lambda: and_(
+            Repository.id == UserRepoAssociation.repo_id,
+            UserRepoAssociation.can_admin == True,
+        ),
+        foreign_keys=id,
+        uselist=True,
+    )
+    admins = association_proxy("admin_assocs", "user")
 
     @hybrid_property
     def full_name(self):
@@ -126,6 +137,30 @@ class Repository(db.Model, ReplicationTimestampMixin):
 
     def __str__(self):
         return unicode(self).encode('utf-8')
+
+
+class UserRepoAssociation(db.Model, ReplicationTimestampMixin):
+    __tablename__ = "github_user_repository_association"
+
+    user_id = db.Column(db.Integer, primary_key=True)
+    user = db.relationship(
+        User,
+        primaryjoin=(user_id == User.id),
+        foreign_keys=user_id,
+        backref=db.backref("user_repo_assocs", cascade="all, delete-orphan"),
+    )
+    repo_id = db.Column(db.Integer, primary_key=True)
+    repo = db.relationship(
+        Repository,
+        primaryjoin=(repo_id == Repository.id),
+        foreign_keys=repo_id,
+        backref=db.backref("user_repo_assocs", cascade="all, delete-orphan"),
+    )
+
+    # permissions
+    can_pull = db.Column(db.Boolean, default=True)
+    can_push = db.Column(db.Boolean, default=False)
+    can_admin = db.Column(db.Boolean, default=False)
 
 
 class Milestone(db.Model, ReplicationTimestampMixin):
