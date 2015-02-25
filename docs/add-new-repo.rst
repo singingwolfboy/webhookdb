@@ -29,4 +29,6 @@ To load pull requests for a repo, use :http:post:`/load/repos/(owner)/(repo)/pul
 If you want to load *all* pull requests, including closed pull requests, you'll
 need to use the ``?state=all`` query parameter. This API endpoint will create
 tasks on the task queue, but those tasks won't get run unless there is a worker
-process, so check to be sure that a worker is running.
+process, so check to be sure that a worker is running. (If you're using Heroku,
+log in to the website and drag the worker slider on the project dashboard, or
+`use the command line tool <https://devcenter.heroku.com/articles/scaling>`_.)
