@@ -12,6 +12,15 @@ from webhookdb.exceptions import NotFound
 
 @load.route('/repos/<owner>/<repo>/pulls/<int:number>', methods=["POST"])
 def pull_request(owner, repo, number):
+    """
+    Load a single pull request from Github into WebhookDB.
+
+    :query inline: process the request inline instead of creating a task
+      on the task queue. Defaults to ``false``.
+    :statuscode 200: pull request successfully loaded inline
+    :statuscode 202: task successfully queued
+    :statuscode 404: specified pull request was not found on Github
+    """
     inline = bool(request.args.get("inline", False))
     bugsnag_ctx = {"owner": owner, "repo": repo, "number": number, "inline": inline}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
@@ -32,6 +41,16 @@ def pull_request(owner, repo, number):
 
 @load.route('/repos/<owner>/<repo>/pulls', methods=["POST"])
 def pull_requests(owner, repo):
+    """
+    Queue tasks to load all pull requests on a single Github repository
+    into WebhookDB.
+
+    :query state: one of ``all``, ``open``, or ``closed``. This parameter
+      is proxied to the `Github API for listing pull requests`_.
+    :statuscode 202: task successfully queued
+
+    .. _Github API for listing pull requests: https://developer.github.com/v3/pulls/#list-pull-requests
+    """
     bugsnag_ctx = {"owner": owner, "repo": repo}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
     state = request.args.get("state", "open")
