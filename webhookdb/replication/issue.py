@@ -10,6 +10,9 @@ from webhookdb.tasks.issue import process_issue
 
 @replication.route('/issue', methods=["POST"])
 def issue():
+    """
+    Webhook endpoint for ``issues`` events on Github.
+    """
     payload = request.get_json()
     bugsnag.configure_request(meta_data={"payload": payload})
 

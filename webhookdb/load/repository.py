@@ -10,6 +10,16 @@ from webhookdb.exceptions import NotFound
 
 @load.route('/repos/<owner>/<repo>', methods=["POST"])
 def repository(owner, repo):
+    """
+    Load a single repository from Github into WebhookDB. Note that this does
+    not load issues, pull requests, etc for that repository into WebhookDB.
+
+    :query inline: process the request inline instead of creating a task
+      on the task queue. Defaults to ``false``.
+    :statuscode 200: repository successfully loaded inline
+    :statuscode 202: task successfully queued
+    :statuscode 404: specified repository was not found on Github
+    """
     inline = bool(request.args.get("inline", False))
     bugsnag_ctx = {"owner": owner, "repo": repo, "inline": inline}
     bugsnag.configure_request(meta_data=bugsnag_ctx)

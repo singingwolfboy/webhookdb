@@ -12,6 +12,15 @@ from webhookdb.exceptions import NotFound
 
 @load.route('/repos/<owner>/<repo>/issues/<int:number>', methods=["POST"])
 def issue(owner, repo, number):
+    """
+    Load a single issue from Github into WebhookDB.
+
+    :query inline: process the request inline instead of creating a task
+      on the task queue. Defaults to ``false``.
+    :statuscode 200: issue successfully loaded inline
+    :statuscode 202: task successfully queued
+    :statuscode 404: specified issue was not found on Github
+    """
     inline = bool(request.args.get("inline", False))
     bugsnag_ctx = {"owner": owner, "repo": repo, "number": number, "inline": inline}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
@@ -32,6 +41,16 @@ def issue(owner, repo, number):
 
 @load.route('/repos/<owner>/<repo>/issues', methods=["POST"])
 def issues(owner, repo):
+    """
+    Queue tasks to load all issues on a single Github repository
+    into WebhookDB.
+
+    :query state: one of ``all``, ``open``, or ``closed``. This parameter
+      is proxied to the `Github API for listing issues`_.
+    :statuscode 202: task successfully queued
+
+    .. _Github API for listing issues: https://developer.github.com/v3/issues/#list-issues-for-a-repository
+    """
     bugsnag_ctx = {"owner": owner, "repo": repo}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
     state = request.args.get("state", "open")

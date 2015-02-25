@@ -12,6 +12,15 @@ from webhookdb.exceptions import NotFound
 
 @load.route('/repos/<owner>/<repo>/labels/<name>', methods=["POST"])
 def label(owner, repo, name):
+    """
+    Load a single label from Github into WebhookDB.
+
+    :query inline: process the request inline instead of creating a task
+      on the task queue. Defaults to ``false``.
+    :statuscode 200: label successfully loaded inline
+    :statuscode 202: task successfully queued
+    :statuscode 404: specified label was not found on Github
+    """
     inline = bool(request.args.get("inline", False))
     bugsnag_ctx = {"owner": owner, "repo": repo, "name": name, "inline": inline}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
@@ -32,6 +41,12 @@ def label(owner, repo, name):
 
 @load.route('/repos/<owner>/<repo>/labels', methods=["POST"])
 def labels(owner, repo):
+    """
+    Queue tasks to load all labels on a single Github repository
+    into WebhookDB.
+
+    :statuscode 202: task successfully queued
+    """
     bugsnag_ctx = {"owner": owner, "repo": repo}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
 

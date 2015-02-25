@@ -8,6 +8,12 @@ from webhookdb.tasks.pull_request_file import spawn_page_tasks_for_pull_request_
 
 @load.route('/repos/<owner>/<repo>/pulls/<int:number>/files', methods=["POST"])
 def pull_request_files(owner, repo, number):
+    """
+    Queue tasks to load the pull request files (diffs) for a single pull request
+    into WebhookDB.
+
+    :statuscode 202: task successfully queued
+    """
     bugsnag_ctx = {"owner": owner, "repo": repo, "number": number}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
 
