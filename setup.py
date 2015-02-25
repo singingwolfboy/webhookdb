@@ -32,6 +32,7 @@ setup(
     url="https://github.com/singingwolfboy/webhookdb",
     packages=find_packages(),
     install_requires=get_requirements("requirements.txt"),
+    tests_require=get_requirements("dev-requirements.txt"),
     license='AGPL',
     classifiers=(
         'License :: OSI Approved :: GNU Affero General Public License v3',

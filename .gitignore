@@ -1,2 +1,3 @@
 *.pyc
 github.db
+docs/_build
