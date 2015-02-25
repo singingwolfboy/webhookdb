@@ -12,6 +12,15 @@ from webhookdb.exceptions import NotFound
 
 @load.route('/repos/<owner>/<repo>/milestones/<int:number>', methods=["POST"])
 def milestone(owner, repo, number):
+    """
+    Load a single milestone from Github into WebhookDB.
+
+    :query inline: process the request inline instead of creating a task
+      on the task queue. Defaults to ``false``.
+    :statuscode 200: milestone successfully loaded inline
+    :statuscode 202: task successfully queued
+    :statuscode 404: specified milestone was not found on Github
+    """
     inline = bool(request.args.get("inline", False))
     bugsnag_ctx = {"owner": owner, "repo": repo, "number": number, "inline": inline}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
@@ -32,6 +41,12 @@ def milestone(owner, repo, number):
 
 @load.route('/repos/<owner>/<repo>/milestones', methods=["POST"])
 def milestones(owner, repo):
+    """
+    Queue tasks to load all milestones on a single Github repository
+    into WebhookDB.
+
+    :statuscode 202: task successfully queued
+    """
     bugsnag_ctx = {"owner": owner, "repo": repo}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
     state = request.args.get("state", "open")
