@@ -14,6 +14,9 @@ from webhookdb.tasks.pull_request_file import (
 
 @replication.route('/pull_request', methods=["POST"])
 def pull_request():
+    """
+    Webhook endpoint for ``pull_request`` events on Github.
+    """
     payload = request.get_json()
     bugsnag.configure_request(meta_data={"payload": payload})
 
