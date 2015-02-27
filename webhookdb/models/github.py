@@ -6,6 +6,7 @@ from sqlalchemy import func, and_
 from sqlalchemy.orm import backref
 from sqlalchemy.ext.associationproxy import association_proxy
 from sqlalchemy_utils.types.color import ColorType
+from flask_login import UserMixin
 from webhookdb import db
 
 
@@ -36,7 +37,7 @@ class ReplicationTimestampMixin(object):
         return func.greatest(webhook, api, datetime.min)
 
 
-class User(db.Model, ReplicationTimestampMixin):
+class User(db.Model, ReplicationTimestampMixin, UserMixin):
     __tablename__ = "github_user"
 
     id = db.Column(db.Integer, primary_key=True)

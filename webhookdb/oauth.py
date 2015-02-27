@@ -8,6 +8,7 @@ from flask import request, flash
 from flask_dance.contrib.github import make_github_blueprint
 from flask_dance.consumer.oauth2 import OAuth2SessionWithBaseURL
 from flask_dance.consumer import oauth_authorized
+from flask_login import login_user
 from webhookdb import db
 from webhookdb.models import OAuth
 from webhookdb.exceptions import RateLimited
@@ -54,4 +55,11 @@ def github_logged_in(blueprint, token):
         )
         flash(msg)
     else:
+        # figure out who the user is
+        resp = blueprint.session.get("/user")
+        assert resp.ok
+
+        from webhookdb.tasks.user import process_user
+        user = process_user(resp.json(), via="api", fetched_at=datetime.now())
+        login_user(user)
         flash("Successfully signed in with Github")
