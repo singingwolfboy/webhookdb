@@ -13,7 +13,7 @@ def index():
     """
     Just to verify that things are working
     """
-    return render_template("main.html")
+    return render_template("home.html")
 
 
 @ui.route("/install", methods=("GET", "POST"))

@@ -1,19 +1,11 @@
-<!doctype html>
-<html>
-    <head>
-        <script src="//code.jquery.com/jquery-2.1.1.min.js"></script>
-    </head>
-    <body>
-        <h1>Install Webhooks</h1>
-{% with messages = get_flashed_messages() %}
-  {% if messages %}
-    <ul class="flashes">
-    {% for message in messages %}
-      <li>{{ message }}</li>
-    {% endfor %}
-    </ul>
-  {% endif %}
-{% endwith %}
+{% extends "base.html" %}
+
+{% block content_header %}
+<h1>Install Webhooks</h1>
+{% endblock %}
+
+{% block page_content %}
+<form id="install-form" action="{{ url_for("ui.install") }}" method="POST">
     <form id="install-form" action="{{ url_for("ui.install") }}" method="POST">
     <p>
       Clicking this button will install the Github replication webhooks for the repo
@@ -23,5 +15,4 @@
     <input type="text" name="repo" id="repo" required />
     <input type="submit" value="Install Webhooks" />
     </form>
-    </body>
-</html>
+{% endblock %}
