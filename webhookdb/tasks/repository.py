@@ -3,16 +3,18 @@ from __future__ import unicode_literals, print_function
 
 from datetime import datetime
 from iso8601 import parse_date
+from celery import group
 from webhookdb import db
-from webhookdb.models import Repository
+from webhookdb.models import Repository, User, UserRepoAssociation
 from webhookdb.exceptions import NotFound, StaleData, MissingData
-from sqlalchemy.exc import IntegrityError
-from webhookdb.tasks import celery
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
+from webhookdb.tasks import celery, logger
 from webhookdb.tasks.fetch import fetch_url_from_github
-from .user import process_user
+from webhookdb.tasks.user import process_user
+from urlobject import URLObject
 
 
-def process_repository(repo_data, via="webhook", fetched_at=None, commit=True):
+def process_repository(repo_data, via="webhook", fetched_at=None, commit=True, user_id=None):
     repo_id = repo_data.get("id")
     if not repo_id:
         raise MissingData("no repo ID")
@@ -72,6 +74,19 @@ def process_repository(repo_data, via="webhook", fetched_at=None, commit=True):
 
     # add to DB session, so that it will be committed
     db.session.add(repo)
+
+    # if we have user_id and permissions, update the permissions object
+    if user_id and repo_data.get("permissions"):
+        permissions_data = repo_data["permissions"]
+        assoc = UserRepoAssociation.query.get((user_id, repo_id))
+        if not assoc:
+            assoc = UserRepoAssociation(user_id=user_id, repo_id=repo_id)
+        for perm in ("admin", "push", "pull"):
+            if perm in permissions_data:
+                perm_attr = "can_{perm}".format(perm=perm)
+                setattr(assoc, perm_attr, permissions_data[perm])
+        db.session.add(assoc)
+
     if commit:
         db.session.commit()
 
@@ -99,3 +114,50 @@ def sync_repository(self, owner, repo):
     except IntegrityError as exc:
         self.retry(exc=exc)
     return repo
+
+
+@celery.task(bind=True, ignore_result=True)
+def sync_page_of_repositories_for_user(self, username, type="all", per_page=100, page=1):
+    try:
+        user_id = User.query.filter_by(login=username).one().id
+    except SQLAlchemyError:
+        logger.warn("Could not find user object for @{login}".format(login=username))
+        user_id = None
+
+    user_repo_page_url = (
+        "/users/{username}/repos?type={type}&per_page={per_page}&page={page}"
+    ).format(
+        username=username, type=type, per_page=per_page, page=page
+    )
+    resp = fetch_url_from_github(user_repo_page_url)
+    fetched_at = datetime.now()
+    user_repo_data_list = resp.json()
+    results = []
+    for repo_data in user_repo_data_list:
+        try:
+            repo = process_repository(
+                repo_data, via="api", fetched_at=fetched_at, commit=True,
+                user_id=user_id,
+            )
+            results.append(repo)
+        except IntegrityError as exc:
+            self.retry(exc=exc)
+    return results
+
+
+@celery.task(ignore_result=True)
+def spawn_page_tasks_for_user_repositories(username, type="all", per_page=100):
+    user_repo_page_url = (
+        "/users/{username}/repos?type={type}&per_page={per_page}"
+    ).format(
+        username=username, type=type, per_page=per_page,
+    )
+    resp = fetch_url_from_github(user_repo_page_url, method="HEAD")
+    last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
+    last_page_num = int(last_page_url.query.dict.get('page', 1))
+    g = group(
+        sync_page_of_repositories_for_user.s(
+            username=username, type=type, per_page=per_page, page=page
+        ) for page in xrange(1, last_page_num+1)
+    )
+    return g.delay()
