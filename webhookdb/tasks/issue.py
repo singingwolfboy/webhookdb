@@ -122,12 +122,13 @@ def process_issue(issue_data, via="webhook", fetched_at=None, commit=True):
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_issue(self, owner, repo, number):
+def sync_issue(self, owner, repo, number, requestor_id=None):
+    requestor = User.query.get(int(requestor_id))
     issue_url = "/repos/{owner}/{repo}/issues/{number}".format(
         owner=owner, repo=repo, number=number,
     )
     try:
-        resp = fetch_url_from_github(issue_url)
+        resp = fetch_url_from_github(issue_url, as_user=requestor)
     except NotFound:
         # add more context
         msg = "Issue {owner}/{repo}#{number} not found".format(
@@ -150,7 +151,8 @@ def sync_issue(self, owner, repo, number):
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_page_of_issues(self, owner, repo, state="all", per_page=100, page=1):
+def sync_page_of_issues(self, owner, repo, state="all",
+                        requestor_id=None, per_page=100, page=1):
     issue_page_url = (
         "/repos/{owner}/{repo}/issues?"
         "state={state}&per_page={per_page}&page={page}"
@@ -158,7 +160,7 @@ def sync_page_of_issues(self, owner, repo, state="all", per_page=100, page=1):
         owner=owner, repo=repo,
         state=state, per_page=per_page, page=page
     )
-    resp = fetch_url_from_github(issue_page_url)
+    resp = fetch_url_from_github(issue_page_url, requestor_id=requestor_id)
     fetched_at = datetime.now()
     issue_data_list = resp.json()
     results = []
@@ -174,7 +176,8 @@ def sync_page_of_issues(self, owner, repo, state="all", per_page=100, page=1):
 
 
 @celery.task(ignore_result=True)
-def spawn_page_tasks_for_issues(owner, repo, state="all", per_page=100):
+def spawn_page_tasks_for_issues(owner, repo, state="all", requestor_id=None,
+                                per_page=100):
     issue_list_url = (
         "/repos/{owner}/{repo}/issues?"
         "state={state}&per_page={per_page}"
@@ -182,12 +185,15 @@ def spawn_page_tasks_for_issues(owner, repo, state="all", per_page=100):
         owner=owner, repo=repo,
         state=state, per_page=per_page,
     )
-    resp = fetch_url_from_github(issue_list_url, method="HEAD")
+    resp = fetch_url_from_github(
+        issue_list_url, method="HEAD", requestor_id=requestor_id,
+    )
     last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
     last_page_num = int(last_page_url.query.dict.get('page', 1))
     g = group(
         sync_page_of_issues.s(
-            owner=owner, repo=repo, state=state, per_page=per_page, page=page
+            owner=owner, repo=repo, state=state, requestor_id=requestor_id,
+            per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
     return g.delay()

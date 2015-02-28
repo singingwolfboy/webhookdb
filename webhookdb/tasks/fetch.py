@@ -7,14 +7,26 @@ from requests.exceptions import RequestException
 
 
 @celery.task(bind=True)
-def fetch_url_from_github(self, url, **kwargs):
+def fetch_url_from_github(self, url, as_user=None, requestor_id=None, **kwargs):
     if "method" in kwargs:
         method = kwargs.pop("method")
     else:
         method = "GET"
-    logger.info("{method} {url}".format(method=method, url=url))
     if method.upper() == "HEAD":
         kwargs.setdefault("allow_redirects", False)
+
+    username = "anonymous"
+    if as_user:
+        github.load_token(as_user)
+        username = "@{login}".format(login=as_user.login)
+    elif requestor_id:
+        github.load_token(user_id=int(requestor_id))
+        username = "user {}".format(requestor_id)
+
+    logger.info("{method} {url} as {username}".format(
+        method=method, url=url, username=username,
+    ))
+
     try:
         resp = github.request(method=method, url=url, **kwargs)
     except RateLimited as exc:

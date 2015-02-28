@@ -32,7 +32,9 @@ def repository(owner, repo):
         else:
             return jsonify({"message": "success"})
     else:
-        result = sync_repository.delay(owner, repo)
+        result = sync_repository.delay(
+            owner, repo, requestor_id=current_user.get_id(),
+        )
         resp = jsonify({"message": "queued"})
         resp.status_code = 202
         resp.headers["Location"] = url_for("tasks.status", task_id=result.id)

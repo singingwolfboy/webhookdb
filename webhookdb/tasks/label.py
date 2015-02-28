@@ -90,12 +90,12 @@ def process_label(label_data, via="webhook", fetched_at=None, commit=True,
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_label(self, owner, repo, name):
+def sync_label(self, owner, repo, name, requestor_id=None):
     label_url = "/repos/{owner}/{repo}/labels/{name}".format(
         owner=owner, repo=repo, name=name,
     )
     try:
-        resp = fetch_url_from_github(label_url)
+        resp = fetch_url_from_github(label_url, requestor_id=requestor_id)
     except NotFound:
         # add more context
         msg = "Label {name} on {owner}/{repo} not found".format(
@@ -119,7 +119,8 @@ def sync_label(self, owner, repo, name):
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_page_of_labels(self, owner, repo, per_page=100, page=1):
+def sync_page_of_labels(self, owner, repo, requestor_id=None,
+                        per_page=100, page=1):
     label_page_url = (
         "/repos/{owner}/{repo}/labels?"
         "per_page={per_page}&page={page}"
@@ -127,7 +128,7 @@ def sync_page_of_labels(self, owner, repo, per_page=100, page=1):
         owner=owner, repo=repo,
         per_page=per_page, page=page
     )
-    resp = fetch_url_from_github(label_page_url)
+    resp = fetch_url_from_github(label_page_url, requestor_id=requestor_id)
     fetched_at = datetime.now()
     label_data_list = resp.json()
     results = []
@@ -146,18 +147,21 @@ def sync_page_of_labels(self, owner, repo, per_page=100, page=1):
 
 
 @celery.task(ignore_result=True)
-def spawn_page_tasks_for_labels(owner, repo, per_page=100):
+def spawn_page_tasks_for_labels(owner, repo, requestor_id=None, per_page=100):
     label_list_url = (
         "/repos/{owner}/{repo}/labels?per_page={per_page}"
     ).format(
         owner=owner, repo=repo, per_page=per_page,
     )
-    resp = fetch_url_from_github(label_list_url, method="HEAD")
+    resp = fetch_url_from_github(
+        label_list_url, method="HEAD", requestor_id=requestor_id,
+    )
     last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
     last_page_num = int(last_page_url.query.dict.get('page', 1))
     g = group(
         sync_page_of_labels.s(
-            owner=owner, repo=repo, per_page=per_page, page=page
+            owner=owner, repo=repo, requestor_id=requestor_id,
+            per_page=per_page, page=page
         ) for page in xrange(1, last_page_num+1)
     )
     return g.delay()

@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, print_function
 
 from flask import request, jsonify, url_for
+from flask_login import current_user
 import bugsnag
 from . import load
 from webhookdb.tasks.issue import (
@@ -27,13 +28,15 @@ def issue(owner, repo, number):
 
     if inline:
         try:
-            sync_issue(owner, repo, number)
+            sync_issue(owner, repo, number, requestor_id=current_user.get_id())
         except NotFound as exc:
             return jsonify({"message": exc.message}), 404
         else:
             return jsonify({"message": "success"})
     else:
-        result = sync_issue.delay(owner, repo, number)
+        result = sync_issue.delay(
+            owner, repo, number, requestor_id=current_user.get_id(),
+        )
         resp = jsonify({"message": "queued"})
         resp.status_code = 202
         resp.headers["Location"] = url_for("tasks.status", task_id=result.id)
@@ -55,7 +58,9 @@ def issues(owner, repo):
     bugsnag.configure_request(meta_data=bugsnag_ctx)
     state = request.args.get("state", "open")
 
-    result = spawn_page_tasks_for_issues.delay(owner, repo, state)
+    result = spawn_page_tasks_for_issues.delay(
+        owner, repo, state, requestor_id=current_user.get_id(),
+    )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202
     resp.headers["Location"] = url_for("tasks.status", task_id=result.id)

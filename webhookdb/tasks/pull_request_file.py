@@ -61,7 +61,8 @@ def process_pull_request_file(prf_data, via="webhook", fetched_at=None, commit=T
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None, per_page=100, page=1):
+def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None,
+                                    requestor_id=None, per_page=100, page=1):
     if not pr_id:
         # get pull request from DB
         pr_query = (
@@ -80,7 +81,7 @@ def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None, per_p
         owner=owner, repo=repo, number=number,
         per_page=per_page, page=page,
     )
-    resp = fetch_url_from_github(prf_page_url)
+    resp = fetch_url_from_github(prf_page_url, requestor_id=requestor_id)
     fetched_at = datetime.now()
     prf_data_list = resp.json()
     results = []
@@ -99,7 +100,8 @@ def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None, per_p
 
 
 @celery.task(ignore_result=True)
-def spawn_page_tasks_for_pull_request_files(owner, repo, number, per_page=100):
+def spawn_page_tasks_for_pull_request_files(owner, repo, number,
+                                            requestor_id=None, per_page=100):
     prf_list_url = (
         "/repos/{owner}/{repo}/pulls/{number}/files?"
         "per_page={per_page}"
@@ -108,7 +110,9 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number, per_page=100):
         per_page=per_page,
     )
     # first, make sure we get a response from Github
-    resp = fetch_url_from_github(prf_list_url, method="HEAD")
+    resp = fetch_url_from_github(
+        prf_list_url, method="HEAD", requestor_id=requestor_id,
+    )
     last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
     last_page_num = int(last_page_url.query.dict.get('page', 1))
 
@@ -150,7 +154,7 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number, per_page=100):
     g = group(
         sync_page_of_pull_request_files.s(
             owner=owner, repo=repo, number=number, pr_id=pr.id,
-            per_page=per_page, page=page
+            requestor_id=requestor_id, per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
     result = g.delay()

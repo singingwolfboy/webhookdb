@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, print_function
 
 from flask import request, jsonify, url_for
+from flask_login import current_user
 import bugsnag
 from . import load
 from webhookdb.tasks.label import (
@@ -27,7 +28,7 @@ def label(owner, repo, name):
 
     if inline:
         try:
-            sync_label(owner, repo, name)
+            sync_label(owner, repo, name, requestor_id=current_user.get_id())
         except NotFound as exc:
             return jsonify({"message": exc.message}), 404
         else:
@@ -50,7 +51,9 @@ def labels(owner, repo):
     bugsnag_ctx = {"owner": owner, "repo": repo}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
 
-    result = spawn_page_tasks_for_labels.delay(owner, repo)
+    result = spawn_page_tasks_for_labels.delay(
+        owner, repo, requestor_id=current_user.get_id(),
+    )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202
     resp.headers["Location"] = url_for("tasks.status", task_id=result.id)

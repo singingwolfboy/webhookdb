@@ -32,7 +32,9 @@ def user_repositories(username):
         # queue a task to load the user
         sync_user.delay(username)
 
-    result = spawn_page_tasks_for_user_repositories.delay(username, type=type)
+    result = spawn_page_tasks_for_user_repositories.delay(
+        username, type=type, requestor_id=current_user.get_id(),
+    )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202
     resp.headers["Location"] = url_for("tasks.status", task_id=result.id)
@@ -54,7 +56,9 @@ def own_repositories():
     """
     type = request.args.get("type", "all")
 
-    result = spawn_page_tasks_for_user_repositories.delay(current_user.login, type=type)
+    result = spawn_page_tasks_for_user_repositories.delay(
+        current_user.login, type=type, requestor_id=current_user.get_id(),
+    )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202
     resp.headers["Location"] = url_for("tasks.status", task_id=result.id)
