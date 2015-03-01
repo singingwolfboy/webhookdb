@@ -123,12 +123,11 @@ def process_issue(issue_data, via="webhook", fetched_at=None, commit=True):
 
 @celery.task(bind=True, ignore_result=True)
 def sync_issue(self, owner, repo, number, requestor_id=None):
-    requestor = User.query.get(int(requestor_id))
     issue_url = "/repos/{owner}/{repo}/issues/{number}".format(
         owner=owner, repo=repo, number=number,
     )
     try:
-        resp = fetch_url_from_github(issue_url, as_user=requestor)
+        resp = fetch_url_from_github(issue_url, requestor_id=requestor_id)
     except NotFound:
         # add more context
         msg = "Issue {owner}/{repo}#{number} not found".format(
