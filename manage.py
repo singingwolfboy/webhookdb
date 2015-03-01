@@ -5,7 +5,7 @@ from flask.ext.script import Manager, prompt_bool
 import sqlalchemy
 from webhookdb import create_app, db, celery
 from webhookdb.models import (
-    OAuth, User, Repository, UserRepoAssociation, Milestone,
+    OAuth, User, Repository, UserRepoAssociation, RepositoryHook, Milestone,
     PullRequest, PullRequestFile, IssueLabel, Issue
 )
 
@@ -50,7 +50,8 @@ def make_shell_context():
         app=flask.current_app, celery=celery,
         db=db, OAuth=OAuth,
         User=User, Repository=Repository, UserRepoAssociation=UserRepoAssociation,
-        Milestone=Milestone, PullRequest=PullRequest, PullRequestFile=PullRequestFile,
+        RepositoryHook=RepositoryHook, Milestone=Milestone,
+        PullRequest=PullRequest, PullRequestFile=PullRequestFile,
         IssueLabel=IssueLabel, Issue=Issue,
     )
 

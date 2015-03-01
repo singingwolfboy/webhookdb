@@ -127,12 +127,12 @@ def process_milestone(milestone_data, via="webhook", fetched_at=None, commit=Tru
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_milestone(self, owner, repo, number):
+def sync_milestone(self, owner, repo, number, requestor_id=None):
     milestone_url = "/repos/{owner}/{repo}/milestones/{number}".format(
         owner=owner, repo=repo, number=number,
     )
     try:
-        resp = fetch_url_from_github(milestone_url)
+        resp = fetch_url_from_github(milestone_url, requestor_id=requestor_id)
     except NotFound:
         # add more context
         msg = "Milestone #{number} on {owner}/{repo} not found".format(
@@ -156,7 +156,8 @@ def sync_milestone(self, owner, repo, number):
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_page_of_milestones(self, owner, repo, state="all", per_page=100, page=1):
+def sync_page_of_milestones(self, owner, repo, state="all", requestor_id=None,
+                            per_page=100, page=1):
     milestone_page_url = (
         "/repos/{owner}/{repo}/milestones?"
         "state={state}&per_page={per_page}&page={page}"
@@ -164,7 +165,7 @@ def sync_page_of_milestones(self, owner, repo, state="all", per_page=100, page=1
         owner=owner, repo=repo,
         state=state, per_page=per_page, page=page
     )
-    resp = fetch_url_from_github(milestone_page_url)
+    resp = fetch_url_from_github(milestone_page_url, requestor_id=requestor_id)
     fetched_at = datetime.now()
     milestone_data_list = resp.json()
     results = []
@@ -183,7 +184,8 @@ def sync_page_of_milestones(self, owner, repo, state="all", per_page=100, page=1
 
 
 @celery.task(ignore_result=True)
-def spawn_page_tasks_for_milestones(owner, repo, state="all", per_page=100):
+def spawn_page_tasks_for_milestones(owner, repo, state="all", requestor_id=None,
+                                    per_page=100):
     milestone_list_url = (
         "/repos/{owner}/{repo}/pulls?"
         "state={state}&per_page={per_page}"
@@ -191,12 +193,15 @@ def spawn_page_tasks_for_milestones(owner, repo, state="all", per_page=100):
         owner=owner, repo=repo,
         state=state, per_page=per_page,
     )
-    resp = fetch_url_from_github(milestone_list_url, method="HEAD")
+    resp = fetch_url_from_github(
+        milestone_list_url, method="HEAD", requestor_id=requestor_id,
+    )
     last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
     last_page_num = int(last_page_url.query.dict.get('page', 1))
     g = group(
         sync_page_of_milestones.s(
-            owner=owner, repo=repo, state=state, per_page=per_page, page=page
+            owner=owner, repo=repo, state=state, requestor_id=requestor_id,
+            per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
     return g.delay()

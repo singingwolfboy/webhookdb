@@ -4,8 +4,10 @@ from datetime import datetime
 from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy import func, and_
 from sqlalchemy.orm import backref
+from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.associationproxy import association_proxy
-from sqlalchemy_utils.types.color import ColorType
+from sqlalchemy_utils import JSONType, ColorType, ScalarListType
+from flask_login import UserMixin
 from webhookdb import db
 
 
@@ -36,7 +38,7 @@ class ReplicationTimestampMixin(object):
         return func.greatest(webhook, api, datetime.min)
 
 
-class User(db.Model, ReplicationTimestampMixin):
+class User(db.Model, ReplicationTimestampMixin, UserMixin):
     __tablename__ = "github_user"
 
     id = db.Column(db.Integer, primary_key=True)
@@ -86,7 +88,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
         remote_side=User.id,
     )
     private = db.Column(db.Boolean)
-    description = db.Column(db.String(256))
+    description = db.Column(db.String(1024))
     fork = db.Column(db.Boolean)
     created_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime)
@@ -157,6 +159,27 @@ class UserRepoAssociation(db.Model, ReplicationTimestampMixin):
     can_pull = db.Column(db.Boolean, default=True)
     can_push = db.Column(db.Boolean, default=False)
     can_admin = db.Column(db.Boolean, default=False)
+
+
+class RepositoryHook(db.Model, ReplicationTimestampMixin):
+    __tablename__ = "github_repository_hook"
+
+    repo_id = db.Column(db.Integer, index=True)
+    repo = db.relationship(
+        Repository,
+        primaryjoin=(repo_id == Repository.id),
+        foreign_keys=repo_id,
+        backref="hooks",
+    )
+    id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(64))
+    url = db.Column(db.Text)  # the webhook URL
+    config = db.Column(MutableDict.as_mutable(JSONType))
+    events = db.Column(ScalarListType)
+    active = db.Column(db.Boolean)
+    last_response = db.Column(MutableDict.as_mutable(JSONType))
+    created_at = db.Column(db.DateTime)
+    updated_at = db.Column(db.DateTime)
 
 
 class Milestone(db.Model, ReplicationTimestampMixin):

@@ -5,38 +5,38 @@ from flask import request, jsonify, url_for
 from flask_login import current_user
 import bugsnag
 from . import load
-from webhookdb.tasks.pull_request import (
-    sync_pull_request, spawn_page_tasks_for_pull_requests
+from webhookdb.tasks.repository_hook import (
+    sync_repository_hook, spawn_page_tasks_for_repository_hooks
 )
 from webhookdb.exceptions import NotFound
 
 
-@load.route('/repos/<owner>/<repo>/pulls/<int:number>', methods=["POST"])
-def pull_request(owner, repo, number):
+@load.route('/repos/<owner>/<repo>/hooks/<int:hook_id>', methods=["POST"])
+def repository_hook(owner, repo, hook_id):
     """
-    Load a single pull request from Github into WebhookDB.
+    Load a single repository hook from Github into WebhookDB.
 
     :query inline: process the request inline instead of creating a task
       on the task queue. Defaults to ``false``.
-    :statuscode 200: pull request successfully loaded inline
+    :statuscode 200: hook successfully loaded inline
     :statuscode 202: task successfully queued
-    :statuscode 404: specified pull request was not found on Github
+    :statuscode 404: specified hook was not found on Github
     """
     inline = bool(request.args.get("inline", False))
-    bugsnag_ctx = {"owner": owner, "repo": repo, "number": number, "inline": inline}
+    bugsnag_ctx = {"owner": owner, "repo": repo, "hook_id": hook_id, "inline": inline}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
 
     if inline:
         try:
-            sync_pull_request(
-                owner, repo, number, requestor_id=current_user.get_id(),
+            sync_repository_hook(
+                owner, repo, hook_id, requestor_id=current_user.get_id(),
             )
         except NotFound as exc:
             return jsonify({"message": exc.message}), 404
         else:
             return jsonify({"message": "success"})
     else:
-        result = sync_pull_request.delay(
+        result = sync_repository_hook.delay(
             owner, repo, number, requestor_id=current_user.get_id(),
         )
         resp = jsonify({"message": "queued"})
@@ -44,24 +44,18 @@ def pull_request(owner, repo, number):
         resp.headers["Location"] = url_for("tasks.status", task_id=result.id)
         return resp
 
-@load.route('/repos/<owner>/<repo>/pulls', methods=["POST"])
-def pull_requests(owner, repo):
+@load.route('/repos/<owner>/<repo>/hooks', methods=["POST"])
+def repository_hooks(owner, repo):
     """
-    Queue tasks to load all pull requests on a single Github repository
-    into WebhookDB.
+    Queue tasks to load all hooks on a single Github repository into WebhookDB.
 
-    :query state: one of ``all``, ``open``, or ``closed``. This parameter
-      is proxied to the `Github API for listing pull requests`_.
     :statuscode 202: task successfully queued
-
-    .. _Github API for listing pull requests: https://developer.github.com/v3/pulls/#list-pull-requests
     """
     bugsnag_ctx = {"owner": owner, "repo": repo}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
-    state = request.args.get("state", "open")
 
-    result = spawn_page_tasks_for_pull_requests.delay(
-        owner, repo, state, requestor_id=current_user.get_id(),
+    result = spawn_page_tasks_for_repository_hooks.delay(
+        owner, repo, requestor_id=current_user.get_id(),
     )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202

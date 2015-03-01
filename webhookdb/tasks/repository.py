@@ -3,16 +3,19 @@ from __future__ import unicode_literals, print_function
 
 from datetime import datetime
 from iso8601 import parse_date
+from celery import group
 from webhookdb import db
-from webhookdb.models import Repository
+from webhookdb.models import Repository, User, UserRepoAssociation
 from webhookdb.exceptions import NotFound, StaleData, MissingData
-from sqlalchemy.exc import IntegrityError
+from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
-from .user import process_user
+from webhookdb.tasks.user import process_user
+from urlobject import URLObject
 
 
-def process_repository(repo_data, via="webhook", fetched_at=None, commit=True):
+def process_repository(repo_data, via="webhook", fetched_at=None, commit=True,
+                       requestor_id=None):
     repo_id = repo_data.get("id")
     if not repo_id:
         raise MissingData("no repo ID")
@@ -72,6 +75,19 @@ def process_repository(repo_data, via="webhook", fetched_at=None, commit=True):
 
     # add to DB session, so that it will be committed
     db.session.add(repo)
+
+    # if we have requestor_id and permissions, update the permissions object
+    if requestor_id and repo_data.get("permissions"):
+        permissions_data = repo_data["permissions"]
+        assoc = UserRepoAssociation.query.get((requestor_id, repo_id))
+        if not assoc:
+            assoc = UserRepoAssociation(user_id=requestor_id, repo_id=repo_id)
+        for perm in ("admin", "push", "pull"):
+            if perm in permissions_data:
+                perm_attr = "can_{perm}".format(perm=perm)
+                setattr(assoc, perm_attr, permissions_data[perm])
+        db.session.add(assoc)
+
     if commit:
         db.session.commit()
 
@@ -79,10 +95,10 @@ def process_repository(repo_data, via="webhook", fetched_at=None, commit=True):
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_repository(self, owner, repo):
+def sync_repository(self, owner, repo, requestor_id=None):
     repo_url = "/repos/{owner}/{repo}".format(owner=owner, repo=repo)
     try:
-        resp = fetch_url_from_github(repo_url)
+        resp = fetch_url_from_github(repo_url, requestor_id=requestor_id)
     except NotFound:
         # add more context
         msg = "Repo {owner}/{repo} not found".format(owner=owner, repo=repo)
@@ -95,7 +111,83 @@ def sync_repository(self, owner, repo):
     try:
         repo = process_repository(
             repo_data, via="api", fetched_at=datetime.now(), commit=True,
+            requestor_id=requestor_id,
         )
     except IntegrityError as exc:
         self.retry(exc=exc)
     return repo
+
+
+@celery.task(bind=True, ignore_result=True)
+def sync_page_of_repositories_for_user(self, username, type="all",
+                                       requestor_id=None, per_page=100, page=1):
+    repo_page_url = (
+        "/users/{username}/repos?type={type}&per_page={per_page}&page={page}"
+    ).format(
+        username=username, type=type, per_page=per_page, page=page,
+    )
+
+    if requestor_id:
+        requestor = User.query.get(int(requestor_id))
+        assert requestor
+        if requestor.login == username:
+            # we can use the API for getting your *own* repos
+            repo_page_url = (
+                "/user/repos?type={type}&per_page={per_page}&page={page}"
+            ).format(
+                type=type, per_page=per_page, page=page
+            )
+
+    resp = fetch_url_from_github(
+        repo_page_url, requestor_id=requestor_id,
+        headers={"Accept": "application/vnd.github.moondragon+json"},
+    )
+    fetched_at = datetime.now()
+    repo_data_list = resp.json()
+    results = []
+    for repo_data in repo_data_list:
+        try:
+            repo = process_repository(
+                repo_data, via="api", fetched_at=fetched_at, commit=True,
+                requestor_id=requestor_id,
+            )
+            results.append(repo)
+        except IntegrityError as exc:
+            self.retry(exc=exc)
+    return results
+
+
+@celery.task(ignore_result=True)
+def spawn_page_tasks_for_user_repositories(
+            username, type="all", requestor_id=None, per_page=100,
+    ):
+    repo_page_url = (
+        "/users/{username}/repos?type={type}&per_page={per_page}"
+    ).format(
+        username=username, type=type, per_page=per_page,
+    )
+
+    if requestor_id:
+        requestor = User.query.get(int(requestor_id))
+        assert requestor
+        if requestor.login == username:
+            # we can use the API for getting your *own* repos
+            repo_page_url = (
+                "/user/repos?type={type}&per_page={per_page}"
+            ).format(
+                type=type, per_page=per_page,
+            )
+
+    resp = fetch_url_from_github(
+        repo_page_url, method="HEAD", requestor_id=requestor_id,
+        headers={"Accept": "application/vnd.github.moondragon+json"},
+    )
+    last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
+    last_page_num = int(last_page_url.query.dict.get('page', 1))
+    g = group(
+        sync_page_of_repositories_for_user.s(
+            username=username, type=type, requestor_id=requestor_id,
+            per_page=per_page, page=page,
+        ) for page in xrange(1, last_page_num+1)
+    )
+    return g.delay()

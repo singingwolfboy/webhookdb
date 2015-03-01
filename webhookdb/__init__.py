@@ -17,10 +17,17 @@ from bugsnag.flask import handle_exceptions
 from bugsnag.celery import connect_failure_handler
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask_sslify import SSLify
+from flask_bootstrap import Bootstrap
+from flask_login import LoginManager
 from celery import Celery
 
 db = SQLAlchemy()
+bootstrap = Bootstrap()
 celery = Celery()
+
+login_manager = LoginManager()
+login_manager.session_protection = 'strong'
+login_manager.login_view = 'github.login'
 
 
 def expand_config(name):
@@ -35,6 +42,8 @@ def create_app(config="default"):
     app.config.from_object(expand_config(config))
 
     db.init_app(app)
+    bootstrap.init_app(app)
+    login_manager.init_app(app)
     create_celery_app(app)
     if not app.debug:
         SSLify(app)

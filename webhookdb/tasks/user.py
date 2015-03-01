@@ -65,10 +65,18 @@ def process_user(user_data, via="webhook", fetched_at=None, commit=True):
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_user(self, username):
+def sync_user(self, username, requestor_id=None):
     user_url = "/users/{username}".format(username=username)
+
+    if requestor_id:
+        requestor = User.query.get(int(requestor_id))
+        assert requestor
+        if requestor.login == username:
+            # we can use the API for getting the authenticated user
+            user_url = "/user"
+
     try:
-        resp = fetch_url_from_github(user_url)
+        resp = fetch_url_from_github(user_url, requestor_id=requestor_id)
     except NotFound:
         # add more context
         msg = "User @{username} not found".format(username=username)

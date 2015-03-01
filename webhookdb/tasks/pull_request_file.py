@@ -15,7 +15,10 @@ from webhookdb.tasks.fetch import fetch_url_from_github
 from urlobject import URLObject
 
 
-def process_pull_request_file(prf_data, via="webhook", fetched_at=None, commit=True):
+def process_pull_request_file(
+            prf_data, via="webhook", fetched_at=None, commit=True,
+            pull_request_id=None,
+    ):
     sha = prf_data.get("sha")
     if not sha:
         # This indicates a moved file: for example, moving /tmp/a.txt
@@ -23,15 +26,22 @@ def process_pull_request_file(prf_data, via="webhook", fetched_at=None, commit=T
         # way, but it's not actually an error.
         raise NothingToDo("no pull request file SHA")
 
-    pr_id = prf_data.get("pull_request_id")
+    pr_id = pull_request_id
     if not pr_id:
         raise MissingData("no pull_request_id", obj=prf_data)
 
     # fetch the object from the database,
     # or create it if it doesn't exist in the DB
     prf = PullRequestFile.query.get(sha)
+    if prf and prf.pull_request_id != pr_id:
+        msg = (
+            "PullRequestFile {sha} has pull_request_id {actual},"
+            "expected {expected}"
+        ).format(sha=sha, actual=prf.pull_request_id, expected=pr_id)
+        # if we hit this, then pull_request_id needs to be a primary_key, as well
+        raise ValueError(msg)
     if not prf:
-        prf = PullRequestFile(sha=sha)
+        prf = PullRequestFile(sha=sha, pull_request_id=pr_id)
 
     # should we update the object?
     fetched_at = fetched_at or datetime.now()
@@ -41,7 +51,6 @@ def process_pull_request_file(prf_data, via="webhook", fetched_at=None, commit=T
     # update the object
     fields = (
         "filename", "status", "additions", "deletions", "changes", "patch",
-        "pull_request_id",
     )
     for field in fields:
         if field in prf_data:
@@ -61,7 +70,8 @@ def process_pull_request_file(prf_data, via="webhook", fetched_at=None, commit=T
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None, per_page=100, page=1):
+def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None,
+                                    requestor_id=None, per_page=100, page=1):
     if not pr_id:
         # get pull request from DB
         pr_query = (
@@ -80,7 +90,7 @@ def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None, per_p
         owner=owner, repo=repo, number=number,
         per_page=per_page, page=page,
     )
-    resp = fetch_url_from_github(prf_page_url)
+    resp = fetch_url_from_github(prf_page_url, requestor_id=requestor_id)
     fetched_at = datetime.now()
     prf_data_list = resp.json()
     results = []
@@ -99,7 +109,8 @@ def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None, per_p
 
 
 @celery.task(ignore_result=True)
-def spawn_page_tasks_for_pull_request_files(owner, repo, number, per_page=100):
+def spawn_page_tasks_for_pull_request_files(owner, repo, number,
+                                            requestor_id=None, per_page=100):
     prf_list_url = (
         "/repos/{owner}/{repo}/pulls/{number}/files?"
         "per_page={per_page}"
@@ -108,7 +119,9 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number, per_page=100):
         per_page=per_page,
     )
     # first, make sure we get a response from Github
-    resp = fetch_url_from_github(prf_list_url, method="HEAD")
+    resp = fetch_url_from_github(
+        prf_list_url, method="HEAD", requestor_id=requestor_id,
+    )
     last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
     last_page_num = int(last_page_url.query.dict.get('page', 1))
 
@@ -150,7 +163,7 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number, per_page=100):
     g = group(
         sync_page_of_pull_request_files.s(
             owner=owner, repo=repo, number=number, pr_id=pr.id,
-            per_page=per_page, page=page
+            requestor_id=requestor_id, per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
     result = g.delay()

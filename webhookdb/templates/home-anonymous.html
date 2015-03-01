@@ -1,0 +1,9 @@
+{% extends "base.html" %}
+
+{% block content_header %}
+<h1>Welcome</h1>
+{% endblock %}
+
+{% block page_content %}
+<a href="{{ url_for("github.login") }}">Please log in with Github</a>
+{% endblock %}

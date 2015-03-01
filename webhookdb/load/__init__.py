@@ -6,6 +6,8 @@ from flask import Blueprint
 load = Blueprint('load', __name__)
 
 from .repository import repository
+from .repository_hook import repository_hook, repository_hooks
+from .user import user_repositories, own_repositories
 from .pull_request import pull_request, pull_requests
 from .pull_request_file import pull_request_files
 from .milestone import milestone, milestones
