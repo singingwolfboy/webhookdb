@@ -1,10 +1,21 @@
 {% extends "base.html" %}
 
 {% block content_header %}
-<h1>Welcome</h1>
+<h1>Your Repos</h1>
 {% endblock %}
 
 {% block page_content %}
-<p>Replicating over HTTP.</p>
+<form action="{{ url_for("load.own_repositories") }}" method="POST">
+  <input type="submit" value="Sync repos with Github">
+</form>
+<ul>
+{% for repo, has_self_hook in repos %}
+  <li>{{repo.full_name}}: {{has_self_hook}}
+  <form action="{{ url_for("load.repository_hooks", owner=repo.owner_login, repo=repo.name) }}" method="POST">
+      <input type="submit" value="Load hooks">
+    </form>
+  </li>
+{% endfor %}
+</ul>
 <p><a href="{{ url_for("ui.install") }}">Install replication webhooks</a><p>
 {% endblock %}

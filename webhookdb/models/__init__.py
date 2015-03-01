@@ -3,7 +3,7 @@ from __future__ import unicode_literals
 from flask_dance.models import OAuthConsumerMixin
 from webhookdb import db, login_manager
 from .github import (
-    User, Repository, UserRepoAssociation, Milestone,
+    User, Repository, UserRepoAssociation, RepositoryHook, Milestone,
     PullRequest, PullRequestFile, IssueLabel, Issue
 )
 

@@ -15,7 +15,10 @@ from webhookdb.tasks.fetch import fetch_url_from_github
 from urlobject import URLObject
 
 
-def process_pull_request_file(prf_data, via="webhook", fetched_at=None, commit=True):
+def process_pull_request_file(
+            prf_data, via="webhook", fetched_at=None, commit=True,
+            pull_request_id=None,
+    ):
     sha = prf_data.get("sha")
     if not sha:
         # This indicates a moved file: for example, moving /tmp/a.txt
@@ -23,15 +26,22 @@ def process_pull_request_file(prf_data, via="webhook", fetched_at=None, commit=T
         # way, but it's not actually an error.
         raise NothingToDo("no pull request file SHA")
 
-    pr_id = prf_data.get("pull_request_id")
+    pr_id = pull_request_id
     if not pr_id:
         raise MissingData("no pull_request_id", obj=prf_data)
 
     # fetch the object from the database,
     # or create it if it doesn't exist in the DB
     prf = PullRequestFile.query.get(sha)
+    if prf and prf.pull_request_id != pr_id:
+        msg = (
+            "PullRequestFile {sha} has pull_request_id {actual},"
+            "expected {expected}"
+        ).format(sha=sha, actual=prf.pull_request_id, expected=pr_id)
+        # if we hit this, then pull_request_id needs to be a primary_key, as well
+        raise ValueError(msg)
     if not prf:
-        prf = PullRequestFile(sha=sha)
+        prf = PullRequestFile(sha=sha, pull_request_id=pr_id)
 
     # should we update the object?
     fetched_at = fetched_at or datetime.now()
@@ -41,7 +51,6 @@ def process_pull_request_file(prf_data, via="webhook", fetched_at=None, commit=T
     # update the object
     fields = (
         "filename", "status", "additions", "deletions", "changes", "patch",
-        "pull_request_id",
     )
     for field in fields:
         if field in prf_data:

@@ -8,7 +8,7 @@ from flask import request, flash
 from flask_dance.contrib.github import make_github_blueprint
 from flask_dance.consumer.oauth2 import OAuth2SessionWithBaseURL
 from flask_dance.consumer import oauth_authorized
-from flask_login import login_user
+from flask_login import login_user, current_user
 from webhookdb import db
 from webhookdb.models import OAuth
 from webhookdb.exceptions import RateLimited
@@ -41,7 +41,7 @@ github_bp = make_github_blueprint(
     redirect_to="ui.index",
     session_class=GithubSession,
 )
-github_bp.set_token_storage_sqlalchemy(OAuth, db.session)
+github_bp.set_token_storage_sqlalchemy(OAuth, db.session, user=current_user)
 
 
 @oauth_authorized.connect_via(github_bp)

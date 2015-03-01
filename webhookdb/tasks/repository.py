@@ -8,7 +8,7 @@ from webhookdb import db
 from webhookdb.models import Repository, User, UserRepoAssociation
 from webhookdb.exceptions import NotFound, StaleData, MissingData
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from webhookdb.tasks import celery, logger
+from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.user import process_user
 from urlobject import URLObject
@@ -138,7 +138,10 @@ def sync_page_of_repositories_for_user(self, username, type="all",
                 type=type, per_page=per_page, page=page
             )
 
-    resp = fetch_url_from_github(repo_page_url, requestor_id=requestor_id)
+    resp = fetch_url_from_github(
+        repo_page_url, requestor_id=requestor_id,
+        headers={"Accept": "application/vnd.github.moondragon+json"},
+    )
     fetched_at = datetime.now()
     repo_data_list = resp.json()
     results = []
@@ -146,7 +149,7 @@ def sync_page_of_repositories_for_user(self, username, type="all",
         try:
             repo = process_repository(
                 repo_data, via="api", fetched_at=fetched_at, commit=True,
-                requestor_id=as_user.id if as_user else None,
+                requestor_id=requestor_id,
             )
             results.append(repo)
         except IntegrityError as exc:
@@ -158,12 +161,27 @@ def sync_page_of_repositories_for_user(self, username, type="all",
 def spawn_page_tasks_for_user_repositories(
             username, type="all", requestor_id=None, per_page=100,
     ):
-    user_repo_page_url = (
+    repo_page_url = (
         "/users/{username}/repos?type={type}&per_page={per_page}"
     ).format(
         username=username, type=type, per_page=per_page,
     )
-    resp = fetch_url_from_github(user_repo_page_url, method="HEAD")
+
+    if requestor_id:
+        requestor = User.query.get(int(requestor_id))
+        assert requestor
+        if requestor.login == username:
+            # we can use the API for getting your *own* repos
+            repo_page_url = (
+                "/user/repos?type={type}&per_page={per_page}"
+            ).format(
+                type=type, per_page=per_page,
+            )
+
+    resp = fetch_url_from_github(
+        repo_page_url, method="HEAD", requestor_id=requestor_id,
+        headers={"Accept": "application/vnd.github.moondragon+json"},
+    )
     last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
     last_page_num = int(last_page_url.query.dict.get('page', 1))
     g = group(
