@@ -2,6 +2,7 @@
 from __future__ import unicode_literals, print_function
 
 from flask import request, jsonify, url_for
+from flask_login import current_user
 import bugsnag
 from . import load
 from webhookdb.tasks.repository import sync_repository
@@ -26,7 +27,7 @@ def repository(owner, repo):
 
     if inline:
         try:
-            sync_repository(owner, repo)
+            sync_repository(owner, repo, requestor_id=current_user.get_id())
         except NotFound as exc:
             return jsonify({"message": exc.message}), 404
         else:

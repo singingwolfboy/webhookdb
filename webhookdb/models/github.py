@@ -88,7 +88,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
         remote_side=User.id,
     )
     private = db.Column(db.Boolean)
-    description = db.Column(db.String(256))
+    description = db.Column(db.String(1024))
     fork = db.Column(db.Boolean)
     created_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime)

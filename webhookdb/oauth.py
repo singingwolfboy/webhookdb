@@ -37,7 +37,7 @@ class GithubSession(OAuth2SessionWithBaseURL):
 
 
 github_bp = make_github_blueprint(
-    scope="write:repo_hook",
+    scope="admin:repo_hook",
     redirect_to="ui.index",
     session_class=GithubSession,
 )

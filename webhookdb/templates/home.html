@@ -6,16 +6,61 @@
 
 {% block page_content %}
 <form action="{{ url_for("load.own_repositories") }}" method="POST">
-  <input type="submit" value="Sync repos with Github">
+  <input type="submit" value="Sync repos from Github">
 </form>
 <ul>
 {% for repo, has_self_hook in repos %}
-  <li>{{repo.full_name}}: {{has_self_hook}}
-  <form action="{{ url_for("load.repository_hooks", owner=repo.owner_login, repo=repo.name) }}" method="POST">
-      <input type="submit" value="Load hooks">
-    </form>
+  <li class="{% if has_self_hook %}active{% endif %}"
+      data-owner="{{ repo.owner_login }}" data-repo="{{ repo.name }}">
+    {{repo.full_name}}
+    {% if has_self_hook == None %}
+      (hooks not loaded, or repo has no hooks)
+    {% elif has_self_hook == 0 %}
+      (replication off)
+    {% elif has_self_hook > 0 %}
+      (replication on)
+    {% endif %}
+    <a class="ajax-post" href="{{ url_for("load.repository_hooks",
+        owner=repo.owner_login, repo=repo.name) }}">
+      [load hooks]
+    </a>
+    {% if has_self_hook %}
+      <a class="ajax-post" href="{{ url_for("ui.uninstall",
+          owner=repo.owner_login, repo=repo.name) }}">
+        [disable replication]
+      </a>
+    {% else %}
+      <a class="ajax-post" href="{{ url_for("ui.install",
+          owner=repo.owner_login, repo=repo.name) }}">
+        [enable replication]
+      </a>
+    {% endif %}
   </li>
+{% else %}
+  <li>No repos loaded! Click the button above to sync your repos from Github.</li>
 {% endfor %}
 </ul>
-<p><a href="{{ url_for("ui.install") }}">Install replication webhooks</a><p>
+{% endblock %}
+
+{% block scripts %}
+<script src="//cdnjs.cloudflare.com/ajax/libs/jquery/2.1.3/jquery.min.js"></script>
+<script src="//cdnjs.cloudflare.com/ajax/libs/twitter-bootstrap/3.3.0/js/bootstrap.min.js"></script>
+<script>
+$(function() {
+  $("a.ajax-post").on("click", function() {
+    var that = this;
+    $.ajax({
+      type: "POST",
+      url: $(that).attr("href"),
+      success: function() {
+        $(that).after($("<span>", {text: "done!"}))
+      },
+      error: function() {
+        $(that).after($("<span>", {text: "error"}))
+      }
+    })
+    return false;
+  })
+})
+</script>
 {% endblock %}
