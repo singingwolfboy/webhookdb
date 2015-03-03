@@ -121,6 +121,14 @@ class Repository(db.Model, ReplicationTimestampMixin):
     open_issues_count = db.Column(db.Integer)
     default_branch = db.Column(db.String(256))
 
+    # not on github -- used for keeping track of scanning children
+    hooks_last_scanned_at = db.Column(db.DateTime)
+    issues_last_scanned_at = db.Column(db.DateTime)
+    pull_requests_last_scanned_at = db.Column(db.DateTime)
+    labels_last_scanned_at = db.Column(db.DateTime)
+    milestones_last_scanned_at = db.Column(db.DateTime)
+
+    # just for finding all the admins on a repo
     admin_assocs = db.relationship(
         lambda: UserRepoAssociation,
         primaryjoin=lambda: and_(
@@ -343,6 +351,8 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
     deletions = db.Column(db.Integer)
     changed_files = db.Column(db.Integer)
 
+    # not on github -- used for keeping track of scanning children
+    files_last_scanned_at = db.Column(db.DateTime)
 
     @classmethod
     def get(cls, repo_owner, repo_name, number):
