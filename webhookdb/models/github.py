@@ -1,11 +1,12 @@
 # coding=utf-8
 from __future__ import unicode_literals
 from datetime import datetime
-from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy import func, and_
 from sqlalchemy.orm import backref
+from sqlalchemy.ext.hybrid import hybrid_property, hybrid_method
 from sqlalchemy.ext.mutable import MutableDict
 from sqlalchemy.ext.associationproxy import association_proxy
+from sqlalchemy.orm.exc import NoResultFound
 from sqlalchemy_utils import JSONType, ColorType, ScalarListType
 from flask_login import UserMixin
 from webhookdb import db
@@ -57,6 +58,19 @@ class User(db.Model, ReplicationTimestampMixin, UserMixin):
     following_count = db.Column(db.Integer)
     created_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime)
+
+    @classmethod
+    def get(cls, username):
+        """
+        Fetch a user object by username.
+
+        If the user doesn't exist in the webhookdb database, return None.
+        """
+        query = cls.query.filter_by(owner_login=username)
+        try:
+            return query.one()
+        except NoResultFound:
+            return None
 
     def __unicode__(self):
         return "@{login}".format(login=self.login or "<unknown>")
@@ -129,6 +143,21 @@ class Repository(db.Model, ReplicationTimestampMixin):
         name = func.coalesce(cls.name, "<unknown>")
         owner_login = func.coalesce(cls.owner_login, "<unknown>")
         return func.concat(name, '/', owner_login)
+
+    @classmethod
+    def get(cls, owner, name):
+        """
+        Fetch a single repository given two things:
+        * the username of the repo's owner, as a string
+        * the name of the repo, as a string
+
+        If the repository doesn't exist in the webhookdb database, return None.
+        """
+        query = cls.query.filter_by(owner_login=owner, name=name)
+        try:
+            return query.one()
+        except NoResultFound:
+            return None
 
     def __unicode__(self):
         return self.full_name
@@ -212,6 +241,27 @@ class Milestone(db.Model, ReplicationTimestampMixin):
     closed_at = db.Column(db.DateTime)
     due_at = db.Column(db.DateTime)
 
+    @classmethod
+    def get(cls, repo_owner, repo_name, number):
+        """
+        Fetch a single milestone given three things:
+        * the username of the repo's owner, as a string
+        * the name of the repo, as a string
+        * the number of the milestone, as an integer
+
+        If the milestone doesn't exist in the webhookdb database, return None.
+        """
+        query = (
+            cls.query.join(Repository, cls.repo_id == Repository.id)
+            .filter(Repository.owner_login == repo_owner)
+            .filter(Repository.name == repo_name)
+            .filter(cls.number == number)
+        )
+        try:
+            return query.one()
+        except NoResultFound:
+            return None
+
 
 class PullRequest(db.Model, ReplicationTimestampMixin):
     __tablename__ = "github_pull_request"
@@ -290,6 +340,28 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
     deletions = db.Column(db.Integer)
     changed_files = db.Column(db.Integer)
 
+
+    @classmethod
+    def get(cls, repo_owner, repo_name, number):
+        """
+        Fetch a single pull request given three things:
+        * the username of the repo's owner, as a string
+        * the name of the repo, as a string
+        * the number of the pull request, as an integer
+
+        If the pull request doesn't exist in the webhookdb database, return None.
+        """
+        query = (
+            cls.query.join(Repository, cls.base_repo_id == Repository.id)
+            .filter(Repository.owner_login == repo_owner)
+            .filter(Repository.name == repo_name)
+            .filter(cls.number == number)
+        )
+        try:
+            return query.one()
+        except NoResultFound:
+            return None
+
     def __unicode__(self):
         return "{base_repo}#{number}".format(
             base_repo=self.base_repo or "<unknown>/<unknown>",
@@ -298,6 +370,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
 
     def __str__(self):
         return unicode(self).encode('utf-8')
+
 
 
 class PullRequestFile(db.Model, ReplicationTimestampMixin):
@@ -338,6 +411,27 @@ class IssueLabel(db.Model, ReplicationTimestampMixin):
         remote_side=Repository.id,
         backref="labels",
     )
+
+    @classmethod
+    def get(cls, repo_owner, repo_name, name):
+        """
+        Fetch a single label given three things:
+        * the username of the repo's owner, as a string
+        * the name of the repo, as a string
+        * the name of the label, as a string
+
+        If the label doesn't exist in the webhookdb database, return None.
+        """
+        query = (
+            cls.query.join(Repository, cls.repo_id == Repository.id)
+            .filter(Repository.owner_login == repo_owner)
+            .filter(Repository.name == repo_name)
+            .filter(cls.name == name)
+        )
+        try:
+            return query.one()
+        except NoResultFound:
+            return None
 
     def __unicode__(self):
         return self.name
@@ -424,3 +518,24 @@ class Issue(db.Model, ReplicationTimestampMixin):
         foreign_keys=closed_by_id,
         backref=backref("closed_issues", order_by=lambda: Issue.number),
     )
+
+    @classmethod
+    def get(cls, repo_owner, repo_name, number):
+        """
+        Fetch a single issue given three things:
+        * the username of the repo's owner, as a string
+        * the name of the repo, as a string
+        * the number of the issue, as an integer
+
+        If the issue doesn't exist in the webhookdb database, return None.
+        """
+        query = (
+            cls.query.join(Repository, cls.repo_id == Repository.id)
+            .filter(Repository.owner_login == repo_owner)
+            .filter(Repository.name == repo_name)
+            .filter(cls.number == number)
+        )
+        try:
+            return query.one()
+        except NoResultFound:
+            return None
