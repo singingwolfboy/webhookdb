@@ -26,9 +26,8 @@ def user_repositories(username):
     bugsnag.configure_request(meta_data=bugsnag_ctx)
     type = request.args.get("type", "owner")
 
-    try:
-        User.query.filter_by(login=username).one()
-    except NoResultFound:
+    user = User.get(username)
+    if not user:
         # queue a task to load the user
         sync_user.delay(username)
 

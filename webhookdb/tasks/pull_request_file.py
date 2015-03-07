@@ -73,15 +73,7 @@ def process_pull_request_file(
 def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None,
                                     requestor_id=None, per_page=100, page=1):
     if not pr_id:
-        # get pull request from DB
-        pr_query = (
-            PullRequest.query.join(Repository, PullRequest.base_repo_id == Repository.id)
-            .filter(Repository.owner_login == owner)
-            .filter(Repository.name == repo)
-            .filter(PullRequest.number == number)
-        )
-        pr = pr_query.one()
-        pr_id = pr.id
+        pr_id = PullRequest.get(owner, repo, number).id
 
     prf_page_url = (
         "/repos/{owner}/{repo}/pulls/{number}/files?"
@@ -127,29 +119,23 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number,
 
     # Then, clear all old pull request files for this PR from the DB
     # get the pull request object from the database
-    pr_query = (
-        PullRequest.query.join(Repository, PullRequest.base_repo_id == Repository.id)
-        .filter(Repository.owner_login == owner)
-        .filter(Repository.name == repo)
-        .filter(PullRequest.number == number)
-    )
     try:
-        pr = pr_query.one()
-    except NoResultFound:
-        msg = "PR {owner}/{repo}#{number} not loaded in webhookdb".format(
-            owner=owner, repo=repo, number=number,
-        )
-        raise NotFound(msg, {
-            "type": "pull_request_file",
-            "owner": owner,
-            "repo": repo,
-            "number": number,
-        })
+        pr = PullRequest.get(owner, repo, number)
     except MultipleResultsFound:
         msg = "PR {owner}/{repo}#{number} found multiple times!".format(
             owner=owner, repo=repo, number=number,
         )
         raise DatabaseError(msg, {
+            "type": "pull_request_file",
+            "owner": owner,
+            "repo": repo,
+            "number": number,
+        })
+    if not pr:
+        msg = "PR {owner}/{repo}#{number} not loaded in webhookdb".format(
+            owner=owner, repo=repo, number=number,
+        )
+        raise NotFound(msg, {
             "type": "pull_request_file",
             "owner": owner,
             "repo": repo,

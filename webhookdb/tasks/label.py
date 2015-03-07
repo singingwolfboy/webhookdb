@@ -31,26 +31,22 @@ def process_label(label_data, via="webhook", fetched_at=None, commit=True,
         repo_name = path.segments[2]
 
         # fetch repo from database
-        repo_query = (Repository.query
-            .filter(Repository.owner_login == repo_owner)
-            .filter(Repository.name == repo_name)
-        )
         try:
-            repo = repo_query.one()
-        except NoResultFound:
-            msg = "Repo {owner}/{repo} not loaded in webhookdb".format(
-                owner=repo_owner, repo=repo_name,
-            )
-            raise NotFound(msg, {
-                "type": "label",
-                "owner": repo_owner,
-                "repo": repo_name,
-            })
+            repo = Repository.get(repo_owner, repo_name)
         except MultipleResultsFound:
             msg = "Repo {owner}/{repo} found multiple times!".format(
                 owner=repo_owner, repo=repo_name,
             )
             raise DatabaseError(msg, {
+                "type": "label",
+                "owner": repo_owner,
+                "repo": repo_name,
+            })
+        if not repo:
+            msg = "Repo {owner}/{repo} not loaded in webhookdb".format(
+                owner=repo_owner, repo=repo_name,
+            )
+            raise NotFound(msg, {
                 "type": "label",
                 "owner": repo_owner,
                 "repo": repo_name,

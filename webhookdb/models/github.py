@@ -65,6 +65,7 @@ class User(db.Model, ReplicationTimestampMixin, UserMixin):
         Fetch a user object by username.
 
         If the user doesn't exist in the webhookdb database, return None.
+        This can still raise a MultipleResultsFound exception.
         """
         query = cls.query.filter_by(owner_login=username)
         try:
@@ -152,6 +153,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
         * the name of the repo, as a string
 
         If the repository doesn't exist in the webhookdb database, return None.
+        This can still raise a MultipleResultsFound exception.
         """
         query = cls.query.filter_by(owner_login=owner, name=name)
         try:
@@ -250,6 +252,7 @@ class Milestone(db.Model, ReplicationTimestampMixin):
         * the number of the milestone, as an integer
 
         If the milestone doesn't exist in the webhookdb database, return None.
+        This can still raise a MultipleResultsFound exception.
         """
         query = (
             cls.query.join(Repository, cls.repo_id == Repository.id)
@@ -350,6 +353,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         * the number of the pull request, as an integer
 
         If the pull request doesn't exist in the webhookdb database, return None.
+        This can still raise a MultipleResultsFound exception.
         """
         query = (
             cls.query.join(Repository, cls.base_repo_id == Repository.id)
@@ -421,6 +425,7 @@ class IssueLabel(db.Model, ReplicationTimestampMixin):
         * the name of the label, as a string
 
         If the label doesn't exist in the webhookdb database, return None.
+        This can still raise a MultipleResultsFound exception.
         """
         query = (
             cls.query.join(Repository, cls.repo_id == Repository.id)
@@ -528,6 +533,7 @@ class Issue(db.Model, ReplicationTimestampMixin):
         * the number of the issue, as an integer
 
         If the issue doesn't exist in the webhookdb database, return None.
+        This can still raise a MultipleResultsFound exception.
         """
         query = (
             cls.query.join(Repository, cls.repo_id == Repository.id)
