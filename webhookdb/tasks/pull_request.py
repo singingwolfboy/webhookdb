@@ -5,7 +5,7 @@ from datetime import datetime
 from iso8601 import parse_date
 from celery import group
 from webhookdb import db
-from webhookdb.models import PullRequest
+from webhookdb.models import PullRequest, Repository
 from webhookdb.exceptions import (
     MissingData, StaleData, NotFound
 )
@@ -111,7 +111,7 @@ def process_pull_request(pr_data, via="webhook", fetched_at=None, commit=True):
     return pr
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_pull_request(self, owner, repo, number, requestor_id=None):
     pr_url = "/repos/{owner}/{repo}/pulls/{number}".format(
         owner=owner, repo=repo, number=number,
@@ -136,10 +136,10 @@ def sync_pull_request(self, owner, repo, number, requestor_id=None):
         )
     except IntegrityError as exc:
         self.retry(exc=exc)
-    return pr
+    return pr.id
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_page_of_pull_requests(self, owner, repo, state="all", requestor_id=None,
                                per_page=100, page=1):
     pr_page_url = (
@@ -158,13 +158,36 @@ def sync_page_of_pull_requests(self, owner, repo, state="all", requestor_id=None
             pr = process_pull_request(
                 pr_data, via="api", fetched_at=fetched_at, commit=True,
             )
-            results.append(pr)
+            results.append(pr.id)
         except IntegrityError as exc:
             self.retry(exc=exc)
     return results
 
 
-@celery.task(ignore_result=True)
+@celery.task()
+def pull_requests_scanned(owner, repo, requestor_id=None):
+    """
+    Update the timestamp on the repository object,
+    and delete old pull request that weren't updated.
+    """
+    repo = Repository.get(owner, repo)
+    prev_scan_at = repo.pull_requests_last_scanned_at
+    pr.pull_requests_last_scanned_at = datetime.now()
+    db.session.add(repo)
+
+    if prev_scan_at:
+        # delete any PRs that were not updated since the previous scan --
+        # they have been removed from Github
+        query = (
+            PullRequest.query.filter_by(repo_id=repo.id)
+            .filter(PullRequest.last_replicated_at < prev_scan_at)
+        )
+        query.delete()
+
+    db.session.commit()
+
+
+@celery.task()
 def spawn_page_tasks_for_pull_requests(owner, repo, state="all",
                                        requestor_id=None, per_page=100):
     pr_list_url = (
@@ -185,4 +208,7 @@ def spawn_page_tasks_for_pull_requests(owner, repo, state="all",
             per_page=per_page, page=page
         ) for page in xrange(1, last_page_num+1)
     )
-    return g.delay()
+    finisher = pull_requests_scanned.si(
+        owner=owner, repo=repo, requestor_id=requestor_id,
+    )
+    return (g | finisher).delay()

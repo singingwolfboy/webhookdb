@@ -153,6 +153,29 @@ def sync_page_of_repository_hooks(self, owner, repo,
     return results
 
 
+@celery.task()
+def hooks_scanned(owner, repo, requestor_id=None):
+    """
+    Update the timestamp on the repository object,
+    and delete old hooks that weren't updated.
+    """
+    repo = Repository.get(owner, repo)
+    prev_scan_at = repo.hooks_last_scanned_at
+    pr.hooks_last_scanned_at = datetime.now()
+    db.session.add(repo)
+
+    if prev_scan_at:
+        # delete any hooks that were not updated since the previous scan --
+        # they have been removed from Github
+        query = (
+            RepositoryHook.query.filter_by(repo_id=repo.id)
+            .filter(RepositoryHook.last_replicated_at < prev_scan_at)
+        )
+        query.delete()
+
+    db.session.commit()
+
+
 @celery.task(ignore_result=True)
 def spawn_page_tasks_for_repository_hooks(
             owner, repo, requestor_id=None, per_page=100,
@@ -173,4 +196,7 @@ def spawn_page_tasks_for_repository_hooks(
             per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
-    return g.delay()
+    finisher = hooks_scanned.si(
+        owner=owner, repo=repo, requestor_id=requestor_id,
+    )
+    return (g | finisher).delay()

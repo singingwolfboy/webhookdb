@@ -85,7 +85,7 @@ def process_label(label_data, via="webhook", fetched_at=None, commit=True,
     return label
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_label(self, owner, repo, name, requestor_id=None):
     label_url = "/repos/{owner}/{repo}/labels/{name}".format(
         owner=owner, repo=repo, name=name,
@@ -111,10 +111,10 @@ def sync_label(self, owner, repo, name, requestor_id=None):
     except IntegrityError as exc:
         # multiple workers tried to insert the same label simulataneously. Retry!
         self.retry(exc=exc)
-    return label
+    return label.name
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_page_of_labels(self, owner, repo, requestor_id=None,
                         per_page=100, page=1):
     label_page_url = (
@@ -136,13 +136,36 @@ def sync_page_of_labels(self, owner, repo, requestor_id=None,
                 repo_id=repo_id,
             )
             repo_id = repo_id or label.repo_id
-            results.append(label)
+            results.append(label.name)
         except IntegrityError as exc:
             self.retry(exc=exc)
     return results
 
 
-@celery.task(ignore_result=True)
+@celery.task()
+def labels_scanned(owner, repo, requestor_id=None):
+    """
+    Update the timestamp on the repository object,
+    and delete old labels that weren't updated.
+    """
+    repo = Repository.get(owner, repo)
+    prev_scan_at = repo.labels_last_scanned_at
+    pr.labels_last_scanned_at = datetime.now()
+    db.session.add(repo)
+
+    if prev_scan_at:
+        # delete any labels that were not updated since the previous scan --
+        # they have been removed from Github
+        query = (
+            Label.query.filter_by(repo_id=repo.id)
+            .filter(Label.last_replicated_at < prev_scan_at)
+        )
+        query.delete()
+
+    db.session.commit()
+
+
+@celery.task()
 def spawn_page_tasks_for_labels(owner, repo, requestor_id=None, per_page=100):
     label_list_url = (
         "/repos/{owner}/{repo}/labels?per_page={per_page}"
@@ -160,4 +183,7 @@ def spawn_page_tasks_for_labels(owner, repo, requestor_id=None, per_page=100):
             per_page=per_page, page=page
         ) for page in xrange(1, last_page_num+1)
     )
-    return g.delay()
+    finisher = labels_scanned.si(
+        owner=owner, repo=repo, requestor_id=requestor_id,
+    )
+    return (g | finisher).delay()

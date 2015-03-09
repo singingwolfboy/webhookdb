@@ -69,7 +69,7 @@ def process_pull_request_file(
     return prf
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_page_of_pull_request_files(self, owner, repo, number, pull_request_id=None,
                                     requestor_id=None, per_page=100, page=1):
     if not pull_request_id:
@@ -92,12 +92,35 @@ def sync_page_of_pull_request_files(self, owner, repo, number, pull_request_id=N
                 prf_data, via="api", fetched_at=fetched_at, commit=True,
                 pull_request_id=pull_request_id,
             )
-            results.append(prf)
+            results.append(prf.sha)
         except IntegrityError as exc:
             self.retry(exc=exc)
         except NothingToDo:
             pass
     return results
+
+
+@celery.task()
+def pull_request_files_scanned(owner, repo, number, requestor_id=None):
+    """
+    Update the timestamp on the pull request object,
+    and delete old pull request files that weren't updated.
+    """
+    pr = PullRequest.get(owner, repo, number)
+    prev_scan_at = pr.files_last_scanned_at
+    pr.files_last_scanned_at = datetime.now()
+    db.session.add(pr)
+
+    if prev_scan_at:
+        # delete any files that were not updated since the previous scan --
+        # they have been removed from Github
+        query = (
+            PullRequestFile.query.filter_by(pull_request_id=pr.id)
+            .filter(PullRequestFile.last_replicated_at < prev_scan_at)
+        )
+        query.delete()
+
+    db.session.commit()
 
 
 @celery.task(ignore_result=True)
@@ -110,50 +133,19 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number,
         owner=owner, repo=repo, number=number,
         per_page=per_page,
     )
-    # first, make sure we get a response from Github
     resp = fetch_url_from_github(
         prf_list_url, method="HEAD", requestor_id=requestor_id,
     )
     last_page_url = URLObject(resp.links.get('last', {}).get('url', ""))
     last_page_num = int(last_page_url.query.dict.get('page', 1))
 
-    # Then, clear all old pull request files for this PR from the DB
-    # get the pull request object from the database
-    try:
-        pr = PullRequest.get(owner, repo, number)
-    except MultipleResultsFound:
-        msg = "PR {owner}/{repo}#{number} found multiple times!".format(
-            owner=owner, repo=repo, number=number,
-        )
-        raise DatabaseError(msg, {
-            "type": "pull_request_file",
-            "owner": owner,
-            "repo": repo,
-            "number": number,
-        })
-    if not pr:
-        msg = "PR {owner}/{repo}#{number} not loaded in webhookdb".format(
-            owner=owner, repo=repo, number=number,
-        )
-        raise NotFound(msg, {
-            "type": "pull_request_file",
-            "owner": owner,
-            "repo": repo,
-            "number": number,
-        })
-
-    # clear all old pull request files for this PR from the DB
-    PullRequestFile.query.filter_by(pull_request_id=pr.id).delete()
-
-    # spawn tasks to repopulate the DB
     g = group(
         sync_page_of_pull_request_files.s(
             owner=owner, repo=repo, number=number, pull_request_id=pr.id,
             requestor_id=requestor_id, per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
-    result = g.delay()
-
-    # commit the deletion to the DB, and return
-    db.session.commit()
-    return result
+    finisher = pull_request_files_scanned.si(
+        owner=owner, repo=repo, number=number, requestor_id=requestor_id,
+    )
+    return (g | finisher).delay()

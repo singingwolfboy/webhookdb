@@ -122,7 +122,7 @@ def process_milestone(milestone_data, via="webhook", fetched_at=None, commit=Tru
     return milestone
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_milestone(self, owner, repo, number, requestor_id=None):
     milestone_url = "/repos/{owner}/{repo}/milestones/{number}".format(
         owner=owner, repo=repo, number=number,
@@ -148,10 +148,10 @@ def sync_milestone(self, owner, repo, number, requestor_id=None):
     except IntegrityError as exc:
         # multiple workers tried to insert the same milestone simulataneously. Retry!
         self.retry(exc=exc)
-    return milestone
+    return milestone.number
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_page_of_milestones(self, owner, repo, state="all", requestor_id=None,
                             per_page=100, page=1):
     milestone_page_url = (
@@ -173,13 +173,36 @@ def sync_page_of_milestones(self, owner, repo, state="all", requestor_id=None,
                 repo_id=repo_id,
             )
             repo_id = repo_id or milestone.repo_id
-            results.append(milestone)
+            results.append(milestone.number)
         except IntegrityError as exc:
             self.retry(exc=exc)
     return results
 
 
-@celery.task(ignore_result=True)
+@celery.task()
+def milestones_scanned(owner, repo, requestor_id=None):
+    """
+    Update the timestamp on the repository object,
+    and delete old milestones that weren't updated.
+    """
+    repo = Repository.get(owner, repo)
+    prev_scan_at = repo.milestones_last_scanned_at
+    pr.milestones_last_scanned_at = datetime.now()
+    db.session.add(repo)
+
+    if prev_scan_at:
+        # delete any milestones that were not updated since the previous scan --
+        # they have been removed from Github
+        query = (
+            Milestone.query.filter_by(repo_id=repo.id)
+            .filter(Milestone.last_replicated_at < prev_scan_at)
+        )
+        query.delete()
+
+    db.session.commit()
+
+
+@celery.task()
 def spawn_page_tasks_for_milestones(owner, repo, state="all", requestor_id=None,
                                     per_page=100):
     milestone_list_url = (
@@ -200,4 +223,7 @@ def spawn_page_tasks_for_milestones(owner, repo, state="all", requestor_id=None,
             per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
-    return g.delay()
+    finisher = milestones_scanned.si(
+        owner=owner, repo=repo, requestor_id=requestor_id,
+    )
+    return (g | finisher).delay()

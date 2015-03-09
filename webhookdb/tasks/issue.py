@@ -121,7 +121,7 @@ def process_issue(issue_data, via="webhook", fetched_at=None, commit=True):
     return issue
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_issue(self, owner, repo, number, requestor_id=None):
     issue_url = "/repos/{owner}/{repo}/issues/{number}".format(
         owner=owner, repo=repo, number=number,
@@ -146,10 +146,10 @@ def sync_issue(self, owner, repo, number, requestor_id=None):
         )
     except IntegrityError as exc:
         self.retry(exc=exc)
-    return issue
+    return issue.id
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_page_of_issues(self, owner, repo, state="all",
                         requestor_id=None, per_page=100, page=1):
     issue_page_url = (
@@ -168,13 +168,36 @@ def sync_page_of_issues(self, owner, repo, state="all",
             issue = process_issue(
                 issue_data, via="api", fetched_at=fetched_at, commit=True,
             )
-            results.append(issue)
+            results.append(issue.id)
         except IntegrityError as exc:
             self.retry(exc=exc)
     return results
 
 
-@celery.task(ignore_result=True)
+@celery.task()
+def issues_scanned(owner, repo, requestor_id=None):
+    """
+    Update the timestamp on the repository object,
+    and delete old issues that weren't updated.
+    """
+    repo = Repository.get(owner, repo)
+    prev_scan_at = repo.issues_last_scanned_at
+    pr.issues_last_scanned_at = datetime.now()
+    db.session.add(repo)
+
+    if prev_scan_at:
+        # delete any issues that were not updated since the previous scan --
+        # they have been removed from Github
+        query = (
+            Issue.query.filter_by(repo_id=repo.id)
+            .filter(Issue.last_replicated_at < prev_scan_at)
+        )
+        query.delete()
+
+    db.session.commit()
+
+
+@celery.task()
 def spawn_page_tasks_for_issues(owner, repo, state="all", requestor_id=None,
                                 per_page=100):
     issue_list_url = (
@@ -195,4 +218,7 @@ def spawn_page_tasks_for_issues(owner, repo, state="all", requestor_id=None,
             per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
-    return g.delay()
+    finisher = issues_scanned.si(
+        owner=owner, repo=repo, requestor_id=requestor_id,
+    )
+    return (g | finisher).delay()
