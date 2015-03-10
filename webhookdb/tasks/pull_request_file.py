@@ -70,10 +70,10 @@ def process_pull_request_file(
 
 
 @celery.task(bind=True, ignore_result=True)
-def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None,
+def sync_page_of_pull_request_files(self, owner, repo, number, pull_request_id=None,
                                     requestor_id=None, per_page=100, page=1):
-    if not pr_id:
-        pr_id = PullRequest.get(owner, repo, number).id
+    if not pull_request_id:
+        pull_request_id = PullRequest.get(owner, repo, number).id
 
     prf_page_url = (
         "/repos/{owner}/{repo}/pulls/{number}/files?"
@@ -87,10 +87,10 @@ def sync_page_of_pull_request_files(self, owner, repo, number, pr_id=None,
     prf_data_list = resp.json()
     results = []
     for prf_data in prf_data_list:
-        prf_data["pull_request_id"] = pr_id
         try:
             prf = process_pull_request_file(
                 prf_data, via="api", fetched_at=fetched_at, commit=True,
+                pull_request_id=pull_request_id,
             )
             results.append(prf)
         except IntegrityError as exc:
@@ -148,7 +148,7 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number,
     # spawn tasks to repopulate the DB
     g = group(
         sync_page_of_pull_request_files.s(
-            owner=owner, repo=repo, number=number, pr_id=pr.id,
+            owner=owner, repo=repo, number=number, pull_request_id=pr.id,
             requestor_id=requestor_id, per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )

@@ -39,7 +39,7 @@ def pull_request():
         PullRequestFile.query.filter_by(pull_request_id=pr.id).delete()
         sync_page_of_pull_request_files(
             owner=pr.base_repo.owner_login, repo=pr.base_repo.name,
-            number=pr.number, pr_id=pr.id,
+            number=pr.number, pull_request_id=pr.id,
         )
     else:
         # otherwise, spawn tasks
