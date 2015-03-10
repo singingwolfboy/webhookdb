@@ -10,7 +10,7 @@ class MissingData(WebhookDBException):
     def __init__(self, message, obj):
         self.message = message
         self.obj = obj
-        WebhookDBException.__init__(self, message, obj)
+        WebhookDBException.__init__(self, message)
 
 
 class StaleData(WebhookDBException):
@@ -23,7 +23,11 @@ class NothingToDo(WebhookDBException):
 class RateLimited(WebhookDBException):
     def __init__(self, response):
         self.response = response
-        WebhookDBException.__init__(self, response)
+        try:
+            message = response.json()["message"]
+        except Exception:
+            message = getattr(response, "content", response)
+        WebhookDBException.__init__(self, message)
 
     @property
     def reset(self):
@@ -47,11 +51,11 @@ class NotFound(WebhookDBException):
     def __init__(self, message, info=None):
         self.message = message
         self.info = info or {}
-        WebhookDBException.__init__(self, message, info)
+        WebhookDBException.__init__(self, message)
 
 
 class DatabaseError(WebhookDBException):
     def __init__(self, message, info=None):
         self.message = message
         self.info = info or {}
-        WebhookDBException.__init__(self, message, info)
+        WebhookDBException.__init__(self, message)
