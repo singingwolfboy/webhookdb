@@ -29,7 +29,7 @@ class GithubSession(OAuth2SessionWithBaseURL):
             method=method, url=url, data=data, headers=headers, **kwargs
         )
         self.last_response = resp
-        if resp.headers.get("X-RateLimit-Remaining"):
+        if resp.status_code == 403 and resp.headers.get("X-RateLimit-Remaining"):
             rl_remaining = int(resp.headers["X-RateLimit-Remaining"])
             if rl_remaining < 1:
                 raise RateLimited(response=resp)
