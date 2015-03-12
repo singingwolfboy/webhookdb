@@ -6,7 +6,7 @@ import sqlalchemy
 from webhookdb import create_app, db, celery
 from webhookdb.models import (
     OAuth, User, Repository, UserRepoAssociation, RepositoryHook, Milestone,
-    PullRequest, PullRequestFile, IssueLabel, Issue
+    PullRequest, PullRequestFile, IssueLabel, Issue, Mutex
 )
 
 manager = Manager(create_app)
@@ -53,6 +53,7 @@ def make_shell_context():
         RepositoryHook=RepositoryHook, Milestone=Milestone,
         PullRequest=PullRequest, PullRequestFile=PullRequestFile,
         IssueLabel=IssueLabel, Issue=Issue,
+        Mutex=Mutex,
     )
 
 
