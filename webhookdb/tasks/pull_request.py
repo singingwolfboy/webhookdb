@@ -5,7 +5,7 @@ from datetime import datetime
 from iso8601 import parse_date
 from celery import group
 from webhookdb import db
-from webhookdb.models import PullRequest, Repository
+from webhookdb.models import PullRequest, Repository, Mutex
 from webhookdb.exceptions import (
     MissingData, StaleData, NotFound
 )
@@ -15,6 +15,8 @@ from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.user import process_user
 from webhookdb.tasks.repository import process_repository
 from urlobject import URLObject
+
+LOCK_TEMPLATE = "Repository|{owner}/{repo}|pulls"
 
 
 def process_pull_request(pr_data, via="webhook", fetched_at=None, commit=True):
@@ -184,12 +186,25 @@ def pull_requests_scanned(owner, repo, requestor_id=None):
         )
         query.delete()
 
+    # delete the mutex
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    Mutex.query.filter_by(name=lock_name).delete()
+
     db.session.commit()
 
 
 @celery.task()
 def spawn_page_tasks_for_pull_requests(owner, repo, state="all",
                                        requestor_id=None, per_page=100):
+    # acquire lock or fail
+    with db.session.begin():
+        lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+        existing = Mutex.query.get(lock_name)
+        if existing:
+            return False
+        lock = Mutex(name=lock_name, user_id=requestor_id)
+        db.session.add(lock)
+
     pr_list_url = (
         "/repos/{owner}/{repo}/pulls?"
         "state={state}&per_page={per_page}"

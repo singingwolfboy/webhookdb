@@ -6,7 +6,7 @@ from iso8601 import parse_date
 from celery import group
 from urlobject import URLObject
 from webhookdb import db
-from webhookdb.models import Issue
+from webhookdb.models import Issue, Mutex
 from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.user import process_user
@@ -16,6 +16,8 @@ from webhookdb.exceptions import (
     MissingData, StaleData, NotFound
 )
 from sqlalchemy.exc import IntegrityError
+
+LOCK_TEMPLATE = "Repository|{owner}/{repo}|issues"
 
 
 def process_issue(issue_data, via="webhook", fetched_at=None, commit=True):
@@ -194,12 +196,25 @@ def issues_scanned(owner, repo, requestor_id=None):
         )
         query.delete()
 
+    # delete the mutex
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    Mutex.query.filter_by(name=lock_name).delete()
+
     db.session.commit()
 
 
 @celery.task()
 def spawn_page_tasks_for_issues(owner, repo, state="all", requestor_id=None,
                                 per_page=100):
+    # acquire lock or fail
+    with db.session.begin():
+        lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+        existing = Mutex.query.get(lock_name)
+        if existing:
+            return False
+        lock = Mutex(name=lock_name, user_id=requestor_id)
+        db.session.add(lock)
+
     issue_list_url = (
         "/repos/{owner}/{repo}/issues?"
         "state={state}&per_page={per_page}"

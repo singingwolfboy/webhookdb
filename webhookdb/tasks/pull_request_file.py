@@ -4,7 +4,7 @@ from __future__ import unicode_literals, print_function
 from datetime import datetime
 from celery import group
 from webhookdb import db
-from webhookdb.models import PullRequestFile, Repository, PullRequest
+from webhookdb.models import PullRequestFile, Repository, PullRequest, Mutex
 from webhookdb.exceptions import (
     MissingData, StaleData, NotFound, NothingToDo, DatabaseError
 )
@@ -13,6 +13,8 @@ from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
 from urlobject import URLObject
+
+LOCK_TEMPLATE = "PullRequest|{owner}/{repo}#{number}|files"
 
 
 def process_pull_request_file(
@@ -120,12 +122,25 @@ def pull_request_files_scanned(owner, repo, number, requestor_id=None):
         )
         query.delete()
 
+    # delete the mutex
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo, number=number)
+    Mutex.query.filter_by(name=lock_name).delete()
+
     db.session.commit()
 
 
 @celery.task(ignore_result=True)
 def spawn_page_tasks_for_pull_request_files(owner, repo, number,
                                             requestor_id=None, per_page=100):
+    # acquire lock or fail
+    with db.session.begin():
+        lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo, number=number)
+        existing = Mutex.query.get(lock_name)
+        if existing:
+            return False
+        lock = Mutex(name=lock_name, user_id=requestor_id)
+        db.session.add(lock)
+
     prf_list_url = (
         "/repos/{owner}/{repo}/pulls/{number}/files?"
         "per_page={per_page}"

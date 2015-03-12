@@ -5,13 +5,15 @@ from datetime import datetime
 from iso8601 import parse_date
 from celery import group
 from webhookdb import db
-from webhookdb.models import Repository, User, UserRepoAssociation
+from webhookdb.models import Repository, User, UserRepoAssociation, Mutex
 from webhookdb.exceptions import NotFound, StaleData, MissingData
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.user import process_user
 from urlobject import URLObject
+
+LOCK_TEMPLATE = "User|{username}|repos"
 
 
 def process_repository(repo_data, via="webhook", fetched_at=None, commit=True,
@@ -157,10 +159,47 @@ def sync_page_of_repositories_for_user(self, username, type="all",
     return results
 
 
+@celery.task()
+def user_repositories_scanned(username, requestor_id=None):
+    """
+    Update the timestamp on the pull request object,
+    and delete old pull request files that weren't updated.
+    """
+    user = User.get(username)
+    prev_scan_at = user.repos_last_scanned_at
+    user.repos_last_scanned_at = datetime.now()
+    db.session.add(user)
+
+    if prev_scan_at:
+        # delete any repos that the user owns that were not updated
+        # since the previous scan -- the user must have deleted those
+        # repos from Github
+        query = (
+            Repository.query.filter_by(owner_id=user.id)
+            .filter(Repository.last_replicated_at < prev_scan_at)
+        )
+        query.delete()
+
+    # delete the mutex
+    lock_name = LOCK_TEMPLATE.format(username=username)
+    Mutex.query.filter_by(name=lock_name).delete()
+
+    db.session.commit()
+
+
 @celery.task(ignore_result=True)
 def spawn_page_tasks_for_user_repositories(
             username, type="all", requestor_id=None, per_page=100,
     ):
+    # acquire lock or fail
+    with db.session.begin():
+        lock_name = LOCK_TEMPLATE.format(username=username)
+        existing = Mutex.query.get(lock_name)
+        if existing:
+            return False
+        lock = Mutex(name=lock_name, user_id=requestor_id)
+        db.session.add(lock)
+
     repo_page_url = (
         "/users/{username}/repos?type={type}&per_page={per_page}"
     ).format(
@@ -190,4 +229,7 @@ def spawn_page_tasks_for_user_repositories(
             per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
-    return g.delay()
+    finisher = user_repositories_scanned.si(
+        username=username, requestor_id=requestor_id,
+    )
+    return (g | finisher).delay()

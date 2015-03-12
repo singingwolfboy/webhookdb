@@ -59,6 +59,9 @@ class User(db.Model, ReplicationTimestampMixin, UserMixin):
     created_at = db.Column(db.DateTime)
     updated_at = db.Column(db.DateTime)
 
+    # not on github -- used for keeping track of scanning children
+    repos_last_scanned_at = db.Column(db.DateTime)
+
     @classmethod
     def get(cls, username):
         """

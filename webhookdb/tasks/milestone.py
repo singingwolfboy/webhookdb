@@ -6,12 +6,14 @@ from iso8601 import parse_date
 from celery import group
 from urlobject import URLObject
 from webhookdb import db, celery
-from webhookdb.models import Milestone, Repository
+from webhookdb.models import Milestone, Repository, Mutex
 from webhookdb.exceptions import NotFound, StaleData, MissingData, DatabaseError
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.user import process_user
+
+LOCK_TEMPLATE = "Repository|{owner}/{repo}|milestones"
 
 
 def process_milestone(milestone_data, via="webhook", fetched_at=None, commit=True,
@@ -199,12 +201,25 @@ def milestones_scanned(owner, repo, requestor_id=None):
         )
         query.delete()
 
+    # delete the mutex
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    Mutex.query.filter_by(name=lock_name).delete()
+
     db.session.commit()
 
 
 @celery.task()
 def spawn_page_tasks_for_milestones(owner, repo, state="all", requestor_id=None,
                                     per_page=100):
+    # acquire lock or fail
+    with db.session.begin():
+        lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+        existing = Mutex.query.get(lock_name)
+        if existing:
+            return False
+        lock = Mutex(name=lock_name, user_id=requestor_id)
+        db.session.add(lock)
+
     milestone_list_url = (
         "/repos/{owner}/{repo}/pulls?"
         "state={state}&per_page={per_page}"

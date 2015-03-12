@@ -5,13 +5,17 @@ from datetime import datetime
 from iso8601 import parse_date
 from celery import group
 from webhookdb import db
-from webhookdb.models import RepositoryHook, Repository, User, UserRepoAssociation
+from webhookdb.models import (
+    RepositoryHook, Repository, User, UserRepoAssociation, Mutex,
+)
 from webhookdb.exceptions import NotFound, StaleData, MissingData
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from webhookdb.tasks import celery, logger
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.user import process_user
 from urlobject import URLObject
+
+LOCK_TEMPLATE = "Repository|{owner}/{repo}|hooks"
 
 
 def process_repository_hook(hook_data, via="webhook", fetched_at=None, commit=True,
@@ -173,6 +177,10 @@ def hooks_scanned(owner, repo, requestor_id=None):
         )
         query.delete()
 
+    # delete the mutex
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    Mutex.query.filter_by(name=lock_name).delete()
+
     db.session.commit()
 
 
@@ -180,6 +188,15 @@ def hooks_scanned(owner, repo, requestor_id=None):
 def spawn_page_tasks_for_repository_hooks(
             owner, repo, requestor_id=None, per_page=100,
     ):
+    # acquire lock or fail
+    with db.session.begin():
+        lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+        existing = Mutex.query.get(lock_name)
+        if existing:
+            return False
+        lock = Mutex(name=lock_name, user_id=requestor_id)
+        db.session.add(lock)
+
     hook_page_url = (
         "/repos/{owner}/{repo}/hooks?per_page={per_page}"
     ).format(
