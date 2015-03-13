@@ -70,7 +70,7 @@ class User(db.Model, ReplicationTimestampMixin, UserMixin):
         If the user doesn't exist in the webhookdb database, return None.
         This can still raise a MultipleResultsFound exception.
         """
-        query = cls.query.filter_by(owner_login=username)
+        query = cls.query.filter_by(login=username)
         try:
             return query.one()
         except NoResultFound:
@@ -504,6 +504,7 @@ class Issue(db.Model, ReplicationTimestampMixin):
             repo_id == IssueLabel.repo_id
         ),
         secondaryjoin=(id == label_association_table.c.issue_id),
+        foreign_keys=[repo_id],
         backref=backref("issues", order_by=lambda: Issue.number),
     )
     assignee_id = db.Column(db.Integer, index=True)

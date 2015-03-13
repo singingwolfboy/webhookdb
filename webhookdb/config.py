@@ -13,6 +13,7 @@ class DefaultConfig(object):
     SQLALCHEMY_DATABASE_URI = os.environ.get("DATABASE_URL", "sqlite:///github.db")
     CELERY_ACCEPT_CONTENT = ["json"]
     CELERY_TASK_SERIALIZER = "json"
+    CELERY_RESULT_SERIALIZER = 'json'
     CELERY_EAGER_PROPAGATES_EXCEPTIONS = True
     if RABBITMQ_PROVIDER == "bigwig":
         # TX_URL for producers

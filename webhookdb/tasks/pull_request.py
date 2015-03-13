@@ -113,14 +113,14 @@ def pull_requests_scanned(owner, repo, requestor_id=None):
 @celery.task()
 def spawn_page_tasks_for_pull_requests(owner, repo, state="all", children=False,
                                        requestor_id=None, per_page=100):
-    # acquire lock or fail
-    with db.session.begin():
-        lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
-        existing = Mutex.query.get(lock_name)
-        if existing:
-            return False
-        lock = Mutex(name=lock_name, user_id=requestor_id)
-        db.session.add(lock)
+    # acquire lock or fail (we're already in a transaction)
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    existing = Mutex.query.get(lock_name)
+    if existing:
+        return False
+    lock = Mutex(name=lock_name, user_id=requestor_id)
+    db.session.add(lock)
+    db.session.commit()
 
     pr_list_url = (
         "/repos/{owner}/{repo}/pulls?"

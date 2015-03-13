@@ -3,6 +3,7 @@ from __future__ import unicode_literals, print_function
 
 from datetime import datetime
 from iso8601 import parse_date
+from urlobject import URLObject
 from webhookdb import db
 from webhookdb.models import RepositoryHook, Repository
 from webhookdb.exceptions import MissingData, StaleData

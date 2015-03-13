@@ -101,14 +101,14 @@ def hooks_scanned(owner, repo, requestor_id=None):
 def spawn_page_tasks_for_repository_hooks(
             owner, repo, children=False, requestor_id=None, per_page=100,
     ):
-    # acquire lock or fail
-    with db.session.begin():
-        lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
-        existing = Mutex.query.get(lock_name)
-        if existing:
-            return False
-        lock = Mutex(name=lock_name, user_id=requestor_id)
-        db.session.add(lock)
+    # acquire lock or fail (we're already in a transaction)
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    existing = Mutex.query.get(lock_name)
+    if existing:
+        return False
+    lock = Mutex(name=lock_name, user_id=requestor_id)
+    db.session.add(lock)
+    db.session.commit()
 
     hook_page_url = (
         "/repos/{owner}/{repo}/hooks?per_page={per_page}"

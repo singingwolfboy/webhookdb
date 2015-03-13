@@ -6,7 +6,7 @@ from iso8601 import parse_date
 from celery import group
 from webhookdb import db
 from webhookdb.process import process_repository
-from webhookdb.models import Repository, User, Mutex
+from webhookdb.models import Repository, User, UserRepoAssociation, Mutex
 from webhookdb.exceptions import NotFound, StaleData, MissingData
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from webhookdb.tasks import celery
@@ -104,22 +104,24 @@ def sync_page_of_repositories_for_user(self, username, type="all",
 
         if children:
             owner = repo.owner_login
-            repo = repo.name
             spawn_page_tasks_for_issues.delay(
-                owner, repo, children=children, requestor_id=requestor_id,
+                owner, repo.name, children=children, requestor_id=requestor_id,
             )
             spawn_page_tasks_for_labels.delay(
-                owner, repo, children=children, requestor_id=requestor_id,
+                owner, repo.name, children=children, requestor_id=requestor_id,
             )
             spawn_page_tasks_for_milestones.delay(
-                owner, repo, children=children, requestor_id=requestor_id,
+                owner, repo.name, children=children, requestor_id=requestor_id,
             )
             spawn_page_tasks_for_pull_requests.delay(
-                owner, repo, children=children, requestor_id=requestor_id,
+                owner, repo.name, children=children, requestor_id=requestor_id,
             )
-            spawn_page_tasks_for_repository_hooks.delay(
-                owner, repo, children=children, requestor_id=requestor_id,
-            )
+            # only try to get repo hooks if the requestor is an admin on this repo
+            assoc = UserRepoAssociation.query.get((requestor_id, repo.id))
+            if assoc and assoc.can_admin:
+                spawn_page_tasks_for_repository_hooks.delay(
+                    owner, repo.name, children=children, requestor_id=requestor_id,
+                )
 
     return results
 
@@ -143,7 +145,7 @@ def user_repositories_scanned(username, requestor_id=None):
             Repository.query.filter_by(owner_id=user.id)
             .filter(Repository.last_replicated_at < prev_scan_at)
         )
-        query.delete()
+        query.delete(synchronize_session=False)
 
     # delete the mutex
     lock_name = LOCK_TEMPLATE.format(username=username)
@@ -156,14 +158,14 @@ def user_repositories_scanned(username, requestor_id=None):
 def spawn_page_tasks_for_user_repositories(
             username, type="all", children=False, requestor_id=None, per_page=100,
     ):
-    # acquire lock or fail
-    with db.session.begin():
-        lock_name = LOCK_TEMPLATE.format(username=username)
-        existing = Mutex.query.get(lock_name)
-        if existing:
-            return False
-        lock = Mutex(name=lock_name, user_id=requestor_id)
-        db.session.add(lock)
+    # acquire lock or fail (we're already in a transaction)
+    lock_name = LOCK_TEMPLATE.format(username=username)
+    existing = Mutex.query.get(lock_name)
+    if existing:
+        return False
+    lock = Mutex(name=lock_name, user_id=requestor_id)
+    db.session.add(lock)
+    db.session.commit()
 
     repo_page_url = (
         "/users/{username}/repos?type={type}&per_page={per_page}"

@@ -5,7 +5,7 @@
 {% endblock %}
 
 {% block page_content %}
-<form action="{{ url_for("load.own_repositories") }}" method="POST">
+<form action="{{ url_for("load.own_repositories") }}?children=true" method="POST">
   <input type="submit" value="Sync repos from Github">
 </form>
 <ul>
