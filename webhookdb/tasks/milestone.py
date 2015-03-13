@@ -110,7 +110,10 @@ def spawn_page_tasks_for_milestones(owner, repo, state="all", children=False,
         return False
     lock = Mutex(name=lock_name, user_id=requestor_id)
     db.session.add(lock)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        return False
 
     milestone_list_url = (
         "/repos/{owner}/{repo}/pulls?"

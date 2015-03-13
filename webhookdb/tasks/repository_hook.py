@@ -108,7 +108,10 @@ def spawn_page_tasks_for_repository_hooks(
         return False
     lock = Mutex(name=lock_name, user_id=requestor_id)
     db.session.add(lock)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        return False
 
     hook_page_url = (
         "/repos/{owner}/{repo}/hooks?per_page={per_page}"

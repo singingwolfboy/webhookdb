@@ -165,7 +165,10 @@ def spawn_page_tasks_for_user_repositories(
         return False
     lock = Mutex(name=lock_name, user_id=requestor_id)
     db.session.add(lock)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        return False
 
     repo_page_url = (
         "/users/{username}/repos?type={type}&per_page={per_page}"

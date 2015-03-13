@@ -86,7 +86,10 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number, children=False,
         return False
     lock = Mutex(name=lock_name, user_id=requestor_id)
     db.session.add(lock)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        return False
 
     pr = PullRequest.get(owner, repo, number)
 

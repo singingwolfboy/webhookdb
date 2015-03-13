@@ -120,7 +120,10 @@ def spawn_page_tasks_for_pull_requests(owner, repo, state="all", children=False,
         return False
     lock = Mutex(name=lock_name, user_id=requestor_id)
     db.session.add(lock)
-    db.session.commit()
+    try:
+        db.session.commit()
+    except IntegrityError:
+        return False
 
     pr_list_url = (
         "/repos/{owner}/{repo}/pulls?"
