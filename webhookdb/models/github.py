@@ -504,7 +504,7 @@ class Issue(db.Model, ReplicationTimestampMixin):
             repo_id == IssueLabel.repo_id
         ),
         secondaryjoin=(id == label_association_table.c.issue_id),
-        foreign_keys=[repo_id],
+        foreign_keys=[id, repo_id],
         backref=backref("issues", order_by=lambda: Issue.number),
     )
     assignee_id = db.Column(db.Integer, index=True)
