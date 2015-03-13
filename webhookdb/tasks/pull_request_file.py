@@ -88,6 +88,8 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number, children=False,
     db.session.add(lock)
     db.session.commit()
 
+    pr = PullRequest.get(owner, repo, number)
+
     prf_list_url = (
         "/repos/{owner}/{repo}/pulls/{number}/files?"
         "per_page={per_page}"

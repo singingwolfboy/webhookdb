@@ -13,12 +13,12 @@
   <li class="{% if has_self_hook %}active{% endif %}"
       data-owner="{{ repo.owner_login }}" data-repo="{{ repo.name }}">
     {{repo.full_name}}
-    {% if has_self_hook == None %}
-      (hooks not loaded, or repo has no hooks)
-    {% elif has_self_hook == 0 %}
-      (replication off)
-    {% elif has_self_hook > 0 %}
+    {% if not repo.hooks_last_scanned_at %}
+      (hooks not yet loaded)
+    {% elif has_self_hook %}
       (replication on)
+    {% else %}
+      (replication off)
     {% endif %}
     <a class="ajax-post" href="{{ url_for("load.repository_hooks",
         owner=repo.owner_login, repo=repo.name) }}">
