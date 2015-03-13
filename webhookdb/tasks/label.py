@@ -88,7 +88,7 @@ def process_label(label_data, via="webhook", fetched_at=None, commit=True,
 
 
 @celery.task(bind=True)
-def sync_label(self, owner, repo, name, requestor_id=None):
+def sync_label(self, owner, repo, name, children=False, requestor_id=None):
     label_url = "/repos/{owner}/{repo}/labels/{name}".format(
         owner=owner, repo=repo, name=name,
     )
@@ -117,7 +117,7 @@ def sync_label(self, owner, repo, name, requestor_id=None):
 
 
 @celery.task(bind=True)
-def sync_page_of_labels(self, owner, repo, requestor_id=None,
+def sync_page_of_labels(self, owner, repo, children=False, requestor_id=None,
                         per_page=100, page=1):
     label_page_url = (
         "/repos/{owner}/{repo}/labels?"
@@ -172,7 +172,8 @@ def labels_scanned(owner, repo, requestor_id=None):
 
 
 @celery.task()
-def spawn_page_tasks_for_labels(owner, repo, requestor_id=None, per_page=100):
+def spawn_page_tasks_for_labels(owner, repo, children=False,
+                                requestor_id=None, per_page=100):
     # acquire lock or fail
     with db.session.begin():
         lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)

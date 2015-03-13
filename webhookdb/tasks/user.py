@@ -8,6 +8,7 @@ from webhookdb.models import User
 from webhookdb.exceptions import NotFound, StaleData, MissingData
 from sqlalchemy.exc import IntegrityError
 from webhookdb.tasks.fetch import fetch_url_from_github
+from webhookdb.tasks.repository import spawn_page_tasks_for_user_repositories
 
 
 def process_user(user_data, via="webhook", fetched_at=None, commit=True):
@@ -64,8 +65,8 @@ def process_user(user_data, via="webhook", fetched_at=None, commit=True):
     return user
 
 
-@celery.task(bind=True, ignore_result=True)
-def sync_user(self, username, requestor_id=None):
+@celery.task(bind=True)
+def sync_user(self, username, children=False, requestor_id=None):
     user_url = "/users/{username}".format(username=username)
 
     if requestor_id:
@@ -92,4 +93,10 @@ def sync_user(self, username, requestor_id=None):
     except IntegrityError as exc:
         # multiple workers tried to insert the same user simulataneously. Retry!
         self.retry(exc=exc)
-    return user
+
+    if children:
+        spawn_page_tasks_for_user_repositories.delay(
+            username, children=children, requestor_id=requestor_id,
+        )
+
+    return user.id

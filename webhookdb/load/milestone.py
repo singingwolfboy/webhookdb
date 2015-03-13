@@ -23,19 +23,24 @@ def milestone(owner, repo, number):
     :statuscode 404: specified milestone was not found on Github
     """
     inline = bool(request.args.get("inline", False))
+    children = bool(request.args.get("children", False))
     bugsnag_ctx = {"owner": owner, "repo": repo, "number": number, "inline": inline}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
 
-    if inline:
+    if inline and not children:
         try:
-            sync_milestone(owner, repo, number, requestor_id=current_user.get_id())
+            sync_milestone(
+                owner, repo, number, children=children,
+                requestor_id=current_user.get_id(),
+            )
         except NotFound as exc:
             return jsonify({"message": exc.message}), 404
         else:
             return jsonify({"message": "success"})
     else:
         result = sync_milestone.delay(
-            owner, repo, number, requestor_id=current_user.get_id(),
+            owner, repo, number, children=children,
+            requestor_id=current_user.get_id(),
         )
         resp = jsonify({"message": "queued"})
         resp.status_code = 202
@@ -53,9 +58,11 @@ def milestones(owner, repo):
     bugsnag_ctx = {"owner": owner, "repo": repo}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
     state = request.args.get("state", "open")
+    children = bool(request.args.get("children", False))
 
     result = spawn_page_tasks_for_milestones.delay(
-        owner, repo, state, requestor_id=current_user.get_id(),
+        owner, repo, state, children=children,
+        requestor_id=current_user.get_id(),
     )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202

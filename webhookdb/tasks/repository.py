@@ -11,6 +11,11 @@ from sqlalchemy.exc import IntegrityError, SQLAlchemyError
 from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.user import process_user
+from webhookdb.tasks.issue import spawn_page_tasks_for_issues
+from webhookdb.tasks.label import spawn_page_tasks_for_labels
+from webhookdb.tasks.milestone import spawn_page_tasks_for_milestones
+from webhookdb.tasks.pull_request import spawn_page_tasks_for_pull_requests
+from webhookdb.tasks.repository_hook import spawn_page_tasks_for_repository_hooks
 from urlobject import URLObject
 
 LOCK_TEMPLATE = "User|{username}|repos"
@@ -96,8 +101,8 @@ def process_repository(repo_data, via="webhook", fetched_at=None, commit=True,
     return repo
 
 
-@celery.task(bind=True, ignore_result=True)
-def sync_repository(self, owner, repo, requestor_id=None):
+@celery.task(bind=True)
+def sync_repository(self, owner, repo, children=False, requestor_id=None):
     repo_url = "/repos/{owner}/{repo}".format(owner=owner, repo=repo)
     try:
         resp = fetch_url_from_github(repo_url, requestor_id=requestor_id)
@@ -117,12 +122,31 @@ def sync_repository(self, owner, repo, requestor_id=None):
         )
     except IntegrityError as exc:
         self.retry(exc=exc)
-    return repo
+
+    if children:
+        spawn_page_tasks_for_issues.delay(
+            owner, repo, children=children, requestor_id=requestor_id,
+        )
+        spawn_page_tasks_for_labels.delay(
+            owner, repo, children=children, requestor_id=requestor_id,
+        )
+        spawn_page_tasks_for_milestones.delay(
+            owner, repo, children=children, requestor_id=requestor_id,
+        )
+        spawn_page_tasks_for_pull_requests.delay(
+            owner, repo, children=children, requestor_id=requestor_id,
+        )
+        spawn_page_tasks_for_repository_hooks.delay(
+            owner, repo, children=children, requestor_id=requestor_id,
+        )
+
+    return repo.id
 
 
-@celery.task(bind=True, ignore_result=True)
+@celery.task(bind=True)
 def sync_page_of_repositories_for_user(self, username, type="all",
-                                       requestor_id=None, per_page=100, page=1):
+                                       children=False, requestor_id=None,
+                                       per_page=100, page=1):
     repo_page_url = (
         "/users/{username}/repos?type={type}&per_page={per_page}&page={page}"
     ).format(
@@ -153,9 +177,29 @@ def sync_page_of_repositories_for_user(self, username, type="all",
                 repo_data, via="api", fetched_at=fetched_at, commit=True,
                 requestor_id=requestor_id,
             )
-            results.append(repo)
+            results.append(repo.id)
         except IntegrityError as exc:
             self.retry(exc=exc)
+
+        if children:
+            owner = repo.owner_login
+            repo = repo.name
+            spawn_page_tasks_for_issues.delay(
+                owner, repo, children=children, requestor_id=requestor_id,
+            )
+            spawn_page_tasks_for_labels.delay(
+                owner, repo, children=children, requestor_id=requestor_id,
+            )
+            spawn_page_tasks_for_milestones.delay(
+                owner, repo, children=children, requestor_id=requestor_id,
+            )
+            spawn_page_tasks_for_pull_requests.delay(
+                owner, repo, children=children, requestor_id=requestor_id,
+            )
+            spawn_page_tasks_for_repository_hooks.delay(
+                owner, repo, children=children, requestor_id=requestor_id,
+            )
+
     return results
 
 
@@ -187,9 +231,9 @@ def user_repositories_scanned(username, requestor_id=None):
     db.session.commit()
 
 
-@celery.task(ignore_result=True)
+@celery.task()
 def spawn_page_tasks_for_user_repositories(
-            username, type="all", requestor_id=None, per_page=100,
+            username, type="all", children=False, requestor_id=None, per_page=100,
     ):
     # acquire lock or fail
     with db.session.begin():
@@ -225,7 +269,8 @@ def spawn_page_tasks_for_user_repositories(
     last_page_num = int(last_page_url.query.dict.get('page', 1))
     g = group(
         sync_page_of_repositories_for_user.s(
-            username=username, type=type, requestor_id=requestor_id,
+            username=username, type=type,
+            children=children, requestor_id=requestor_id,
             per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )

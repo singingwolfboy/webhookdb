@@ -66,7 +66,8 @@ def process_pull_request_file(
 
 @celery.task(bind=True)
 def sync_page_of_pull_request_files(self, owner, repo, number, pull_request_id=None,
-                                    requestor_id=None, per_page=100, page=1):
+                                    children=False, requestor_id=None,
+                                    per_page=100, page=1):
     if not pull_request_id:
         pull_request_id = PullRequest.get(owner, repo, number).id
 
@@ -122,8 +123,8 @@ def pull_request_files_scanned(owner, repo, number, requestor_id=None):
     db.session.commit()
 
 
-@celery.task(ignore_result=True)
-def spawn_page_tasks_for_pull_request_files(owner, repo, number,
+@celery.task()
+def spawn_page_tasks_for_pull_request_files(owner, repo, number, children=False,
                                             requestor_id=None, per_page=100):
     # acquire lock or fail
     with db.session.begin():
@@ -150,7 +151,8 @@ def spawn_page_tasks_for_pull_request_files(owner, repo, number,
     g = group(
         sync_page_of_pull_request_files.s(
             owner=owner, repo=repo, number=number, pull_request_id=pr.id,
-            requestor_id=requestor_id, per_page=per_page, page=page,
+            children=children, requestor_id=requestor_id,
+            per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
     finisher = pull_request_files_scanned.si(

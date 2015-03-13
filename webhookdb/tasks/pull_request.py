@@ -14,6 +14,7 @@ from webhookdb.tasks import celery
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.user import process_user
 from webhookdb.tasks.repository import process_repository
+from webhookdb.tasks.pull_request_file import spawn_page_tasks_for_pull_request_files
 from urlobject import URLObject
 
 LOCK_TEMPLATE = "Repository|{owner}/{repo}|pulls"
@@ -114,7 +115,8 @@ def process_pull_request(pr_data, via="webhook", fetched_at=None, commit=True):
 
 
 @celery.task(bind=True)
-def sync_pull_request(self, owner, repo, number, requestor_id=None):
+def sync_pull_request(self, owner, repo, number,
+                      children=False, requestor_id=None):
     pr_url = "/repos/{owner}/{repo}/pulls/{number}".format(
         owner=owner, repo=repo, number=number,
     )
@@ -138,12 +140,18 @@ def sync_pull_request(self, owner, repo, number, requestor_id=None):
         )
     except IntegrityError as exc:
         self.retry(exc=exc)
+
+    if children:
+        spawn_page_tasks_for_pull_request_files.delay(
+            owner, repo, number, children=children, requestor_id=requestor_id,
+        )
+
     return pr.id
 
 
 @celery.task(bind=True)
-def sync_page_of_pull_requests(self, owner, repo, state="all", requestor_id=None,
-                               per_page=100, page=1):
+def sync_page_of_pull_requests(self, owner, repo, state="all", children=False,
+                               requestor_id=None, per_page=100, page=1):
     pr_page_url = (
         "/repos/{owner}/{repo}/pulls?"
         "state={state}&per_page={per_page}&page={page}"
@@ -163,6 +171,12 @@ def sync_page_of_pull_requests(self, owner, repo, state="all", requestor_id=None
             results.append(pr.id)
         except IntegrityError as exc:
             self.retry(exc=exc)
+
+        if children:
+            spawn_page_tasks_for_pull_request_files.delay(
+                owner, repo, pr.number, children=children,
+                requestor_id=requestor_id,
+            )
     return results
 
 
@@ -194,7 +208,7 @@ def pull_requests_scanned(owner, repo, requestor_id=None):
 
 
 @celery.task()
-def spawn_page_tasks_for_pull_requests(owner, repo, state="all",
+def spawn_page_tasks_for_pull_requests(owner, repo, state="all", children=False,
                                        requestor_id=None, per_page=100):
     # acquire lock or fail
     with db.session.begin():
@@ -219,7 +233,8 @@ def spawn_page_tasks_for_pull_requests(owner, repo, state="all",
     last_page_num = int(last_page_url.query.dict.get('page', 1))
     g = group(
         sync_page_of_pull_requests.s(
-            owner=owner, repo=repo, state=state, requestor_id=requestor_id,
+            owner=owner, repo=repo, state=state,
+            children=children, requestor_id=requestor_id,
             per_page=per_page, page=page
         ) for page in xrange(1, last_page_num+1)
     )

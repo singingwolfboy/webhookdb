@@ -23,13 +23,18 @@ def repository_hook(owner, repo, hook_id):
     :statuscode 404: specified hook was not found on Github
     """
     inline = bool(request.args.get("inline", False))
-    bugsnag_ctx = {"owner": owner, "repo": repo, "hook_id": hook_id, "inline": inline}
+    children = bool(request.args.get("children", False))
+    bugsnag_ctx = {
+        "owner": owner, "repo": repo, "hook_id": hook_id,
+        "inline": inline, "children": children,
+    }
     bugsnag.configure_request(meta_data=bugsnag_ctx)
 
-    if inline:
+    if inline and not children:
         try:
             sync_repository_hook(
-                owner, repo, hook_id, requestor_id=current_user.get_id(),
+                owner, repo, hook_id, children=children,
+                requestor_id=current_user.get_id(),
             )
         except NotFound as exc:
             return jsonify({"message": exc.message}), 404
@@ -37,7 +42,8 @@ def repository_hook(owner, repo, hook_id):
             return jsonify({"message": "success"})
     else:
         result = sync_repository_hook.delay(
-            owner, repo, number, requestor_id=current_user.get_id(),
+            owner, repo, number, children=children,
+            requestor_id=current_user.get_id(),
         )
         resp = jsonify({"message": "queued"})
         resp.status_code = 202
@@ -51,11 +57,13 @@ def repository_hooks(owner, repo):
 
     :statuscode 202: task successfully queued
     """
-    bugsnag_ctx = {"owner": owner, "repo": repo}
+    children = bool(request.args.get("children", False))
+    bugsnag_ctx = {"owner": owner, "repo": repo, "children": children}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
 
     result = spawn_page_tasks_for_repository_hooks.delay(
-        owner, repo, requestor_id=current_user.get_id(),
+        owner, repo, children=children,
+        requestor_id=current_user.get_id(),
     )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202

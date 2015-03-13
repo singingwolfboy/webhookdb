@@ -104,8 +104,9 @@ def process_repository_hook(hook_data, via="webhook", fetched_at=None, commit=Tr
     return repo
 
 
-@celery.task(bind=True, ignore_result=True)
-def sync_repository_hook(self, owner, repo, hook_id, requestor_id=None):
+@celery.task(bind=True)
+def sync_repository_hook(self, owner, repo, hook_id,
+                         children=False, requestor_id=None):
     hook_url = "/repos/{owner}/{repo}/hooks/{hook_id}".format(
         owner=owner, repo=repo, hook_id=hook_id,
     )
@@ -130,11 +131,11 @@ def sync_repository_hook(self, owner, repo, hook_id, requestor_id=None):
         )
     except IntegrityError as exc:
         self.retry(exc=exc)
-    return hook
+    return hook.id
 
 
-@celery.task(bind=True, ignore_result=True)
-def sync_page_of_repository_hooks(self, owner, repo,
+@celery.task(bind=True)
+def sync_page_of_repository_hooks(self, owner, repo, children=False,
                                   requestor_id=None, per_page=100, page=1):
     hook_page_url = (
         "/repos/{owner}/{repo}/hooks?per_page={per_page}&page={page}"
@@ -151,7 +152,7 @@ def sync_page_of_repository_hooks(self, owner, repo,
                 hook_data, via="api", fetched_at=fetched_at, commit=True,
                 requestor_id=requestor_id,
             )
-            results.append(hook)
+            results.append(hook.id)
         except IntegrityError as exc:
             self.retry(exc=exc)
     return results
@@ -184,9 +185,9 @@ def hooks_scanned(owner, repo, requestor_id=None):
     db.session.commit()
 
 
-@celery.task(ignore_result=True)
+@celery.task()
 def spawn_page_tasks_for_repository_hooks(
-            owner, repo, requestor_id=None, per_page=100,
+            owner, repo, children=False, requestor_id=None, per_page=100,
     ):
     # acquire lock or fail
     with db.session.begin():
@@ -209,7 +210,8 @@ def spawn_page_tasks_for_repository_hooks(
     last_page_num = int(last_page_url.query.dict.get('page', 1))
     g = group(
         sync_page_of_repository_hooks.s(
-            owner=owner, repo=repo, requestor_id=requestor_id,
+            owner=owner, repo=repo,
+            children=children, requestor_id=requestor_id,
             per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )

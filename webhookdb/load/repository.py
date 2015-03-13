@@ -22,19 +22,27 @@ def repository(owner, repo):
     :statuscode 404: specified repository was not found on Github
     """
     inline = bool(request.args.get("inline", False))
-    bugsnag_ctx = {"owner": owner, "repo": repo, "inline": inline}
+    children = bool(request.args.get("children", False))
+    bugsnag_ctx = {
+        "owner": owner, "repo": repo,
+        "inline": inline, "children": children,
+    }
     bugsnag.configure_request(meta_data=bugsnag_ctx)
 
-    if inline:
+    if inline and not children:
         try:
-            sync_repository(owner, repo, requestor_id=current_user.get_id())
+            sync_repository(
+                owner, repo, children=children,
+                requestor_id=current_user.get_id(),
+            )
         except NotFound as exc:
             return jsonify({"message": exc.message}), 404
         else:
             return jsonify({"message": "success"})
     else:
         result = sync_repository.delay(
-            owner, repo, requestor_id=current_user.get_id(),
+            owner, repo, children=children,
+            requestor_id=current_user.get_id(),
         )
         resp = jsonify({"message": "queued"})
         resp.status_code = 202

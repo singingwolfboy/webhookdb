@@ -17,9 +17,11 @@ def pull_request_files(owner, repo, number):
     """
     bugsnag_ctx = {"owner": owner, "repo": repo, "number": number}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
+    children = bool(request.args.get("children", False))
 
     result = spawn_page_tasks_for_pull_request_files.delay(
-        owner, repo, number, requestor_id=current_user.get_id(),
+        owner, repo, number, children=children,
+        requestor_id=current_user.get_id(),
     )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202

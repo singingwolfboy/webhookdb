@@ -16,6 +16,7 @@ def user_repositories(username):
     """
     Queue tasks to load all of the given user's repositories into WebhookDB.
 
+    :query children: scan all children objects. Defaults to false
     :query type: one of ``all``, ``owner``, ``member``. Default: ``owner``.
       This parameter is proxied to the `Github API for listing user repositories`_.
     :statuscode 202: task successfully queued
@@ -24,6 +25,7 @@ def user_repositories(username):
     """
     bugsnag_ctx = {"username": username}
     bugsnag.configure_request(meta_data=bugsnag_ctx)
+    children = bool(request.args.get("children", False))
     type = request.args.get("type", "owner")
 
     user = User.get(username)
@@ -32,7 +34,8 @@ def user_repositories(username):
         sync_user.delay(username)
 
     result = spawn_page_tasks_for_user_repositories.delay(
-        username, type=type, requestor_id=current_user.get_id(),
+        username, type=type, children=children,
+        requestor_id=current_user.get_id(),
     )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202
@@ -46,6 +49,7 @@ def own_repositories():
     """
     Queue tasks to load all of the logged-in user's repositories into WebhookDB.
 
+    :query children: scan all children objects. Defaults to false
     :query type: one of ``all``, ``owner``, ``public``, ``private``, ``member``.
       Default: ``all``. This parameter is proxied to the
       `Github API for listing your repositories`_.
@@ -53,10 +57,12 @@ def own_repositories():
 
     .. _Github API for listing your repositories: https://developer.github.com/v3/repos/#list-your-repositories
     """
+    children = bool(request.args.get("children", False))
     type = request.args.get("type", "all")
 
     result = spawn_page_tasks_for_user_repositories.delay(
-        current_user.login, type=type, requestor_id=current_user.get_id(),
+        current_user.login, type=type, children=children,
+        requestor_id=current_user.get_id(),
     )
     resp = jsonify({"message": "queued"})
     resp.status_code = 202

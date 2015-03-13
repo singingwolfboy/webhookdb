@@ -125,7 +125,7 @@ def process_milestone(milestone_data, via="webhook", fetched_at=None, commit=Tru
 
 
 @celery.task(bind=True)
-def sync_milestone(self, owner, repo, number, requestor_id=None):
+def sync_milestone(self, owner, repo, number, children=False, requestor_id=None):
     milestone_url = "/repos/{owner}/{repo}/milestones/{number}".format(
         owner=owner, repo=repo, number=number,
     )
@@ -154,7 +154,8 @@ def sync_milestone(self, owner, repo, number, requestor_id=None):
 
 
 @celery.task(bind=True)
-def sync_page_of_milestones(self, owner, repo, state="all", requestor_id=None,
+def sync_page_of_milestones(self, owner, repo, state="all",
+                            children=False, requestor_id=None,
                             per_page=100, page=1):
     milestone_page_url = (
         "/repos/{owner}/{repo}/milestones?"
@@ -209,8 +210,8 @@ def milestones_scanned(owner, repo, requestor_id=None):
 
 
 @celery.task()
-def spawn_page_tasks_for_milestones(owner, repo, state="all", requestor_id=None,
-                                    per_page=100):
+def spawn_page_tasks_for_milestones(owner, repo, state="all", children=False,
+                                    requestor_id=None, per_page=100):
     # acquire lock or fail
     with db.session.begin():
         lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)

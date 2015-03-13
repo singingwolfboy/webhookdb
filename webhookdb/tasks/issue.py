@@ -124,7 +124,7 @@ def process_issue(issue_data, via="webhook", fetched_at=None, commit=True):
 
 
 @celery.task(bind=True)
-def sync_issue(self, owner, repo, number, requestor_id=None):
+def sync_issue(self, owner, repo, number, children=False, requestor_id=None):
     issue_url = "/repos/{owner}/{repo}/issues/{number}".format(
         owner=owner, repo=repo, number=number,
     )
@@ -148,11 +148,12 @@ def sync_issue(self, owner, repo, number, requestor_id=None):
         )
     except IntegrityError as exc:
         self.retry(exc=exc)
+    # ignore `children` attribute for now
     return issue.id
 
 
 @celery.task(bind=True)
-def sync_page_of_issues(self, owner, repo, state="all",
+def sync_page_of_issues(self, owner, repo, state="all", children=False,
                         requestor_id=None, per_page=100, page=1):
     issue_page_url = (
         "/repos/{owner}/{repo}/issues?"
@@ -170,6 +171,7 @@ def sync_page_of_issues(self, owner, repo, state="all",
             issue = process_issue(
                 issue_data, via="api", fetched_at=fetched_at, commit=True,
             )
+            # ignore `children` attribute for now
             results.append(issue.id)
         except IntegrityError as exc:
             self.retry(exc=exc)
@@ -204,8 +206,8 @@ def issues_scanned(owner, repo, requestor_id=None):
 
 
 @celery.task()
-def spawn_page_tasks_for_issues(owner, repo, state="all", requestor_id=None,
-                                per_page=100):
+def spawn_page_tasks_for_issues(owner, repo, state="all", children=False,
+                                requestor_id=None, per_page=100):
     # acquire lock or fail
     with db.session.begin():
         lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
@@ -229,7 +231,8 @@ def spawn_page_tasks_for_issues(owner, repo, state="all", requestor_id=None,
     last_page_num = int(last_page_url.query.dict.get('page', 1))
     g = group(
         sync_page_of_issues.s(
-            owner=owner, repo=repo, state=state, requestor_id=requestor_id,
+            owner=owner, repo=repo, state=state, children=children,
+            requestor_id=requestor_id,
             per_page=per_page, page=page,
         ) for page in xrange(1, last_page_num+1)
     )
