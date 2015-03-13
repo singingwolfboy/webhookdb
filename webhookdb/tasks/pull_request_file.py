@@ -34,14 +34,7 @@ def process_pull_request_file(
 
     # fetch the object from the database,
     # or create it if it doesn't exist in the DB
-    prf = PullRequestFile.query.get(sha)
-    if prf and prf.pull_request_id != pr_id:
-        msg = (
-            "PullRequestFile {sha} has pull_request_id {actual},"
-            "expected {expected}"
-        ).format(sha=sha, actual=prf.pull_request_id, expected=pr_id)
-        # if we hit this, then pull_request_id needs to be a primary_key, as well
-        raise ValueError(msg)
+    prf = PullRequestFile.query.get((pr_id, sha))
     if not prf:
         prf = PullRequestFile(sha=sha, pull_request_id=pr_id)
 

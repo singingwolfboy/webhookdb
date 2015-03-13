@@ -393,6 +393,9 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
 class PullRequestFile(db.Model, ReplicationTimestampMixin):
     __tablename__ = "github_pull_request_file"
 
+    pull_request_id = db.Column(db.Integer, db.ForeignKey(PullRequest.id), primary_key=True)
+    pull_request = db.relationship(PullRequest)
+
     sha = db.Column(db.String(40), primary_key=True)
     filename = db.Column(db.String(256))
     status = db.Column(db.String(64))
@@ -401,8 +404,6 @@ class PullRequestFile(db.Model, ReplicationTimestampMixin):
     changes = db.Column(db.Integer)
     patch = db.Column(db.Text)
 
-    pull_request_id = db.Column(db.Integer, db.ForeignKey(PullRequest.id), index=True)
-    pull_request = db.relationship(PullRequest)
 
     def __unicode__(self):
         return "{pr} {filename}".format(
