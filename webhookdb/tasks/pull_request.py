@@ -91,7 +91,7 @@ def pull_requests_scanned(owner, repo, requestor_id=None):
     """
     repo = Repository.get(owner, repo)
     prev_scan_at = repo.pull_requests_last_scanned_at
-    pr.pull_requests_last_scanned_at = datetime.now()
+    repo.pull_requests_last_scanned_at = datetime.now()
     db.session.add(repo)
 
     if prev_scan_at:

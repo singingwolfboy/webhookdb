@@ -6,7 +6,7 @@ from celery import group
 from urlobject import URLObject
 from webhookdb import db, celery
 from webhookdb.process import process_label
-from webhookdb.models import IssueLabel, Mutex
+from webhookdb.models import IssueLabel, Repository, Mutex
 from webhookdb.exceptions import NotFound, StaleData, MissingData, DatabaseError
 from sqlalchemy.exc import IntegrityError
 from webhookdb.tasks.fetch import fetch_url_from_github
@@ -79,7 +79,7 @@ def labels_scanned(owner, repo, requestor_id=None):
     """
     repo = Repository.get(owner, repo)
     prev_scan_at = repo.labels_last_scanned_at
-    pr.labels_last_scanned_at = datetime.now()
+    repo.labels_last_scanned_at = datetime.now()
     db.session.add(repo)
 
     if prev_scan_at:
