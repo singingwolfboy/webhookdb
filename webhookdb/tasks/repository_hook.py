@@ -78,7 +78,7 @@ def hooks_scanned(owner, repo, requestor_id=None):
     """
     repo = Repository.get(owner, repo)
     prev_scan_at = repo.hooks_last_scanned_at
-    pr.hooks_last_scanned_at = datetime.now()
+    repo.hooks_last_scanned_at = datetime.now()
     db.session.add(repo)
 
     if prev_scan_at:
