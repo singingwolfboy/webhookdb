@@ -56,10 +56,31 @@ def github_logged_in(blueprint, token):
         flash(msg)
     else:
         # figure out who the user is
-        resp = blueprint.session.get("/user")
-        assert resp.ok
+        try:
+            resp = blueprint.session.get("/user")
+        except RateLimited:
+            flash(
+                "Sorry, Github has rate-limited your access to their API, so "
+                "we can't determine who you are and log you in. Please try "
+                "again in an hour or so.",
+                category="error"
+            )
+            return
 
-        from webhookdb.tasks.user import process_user
-        user = process_user(resp.json(), via="api", fetched_at=datetime.now())
-        login_user(user)
-        flash("Successfully signed in with Github")
+        if resp.ok:
+            from webhookdb.tasks.user import process_user
+            user = process_user(resp.json(), via="api", fetched_at=datetime.now())
+            login_user(user)
+            flash("Successfully signed in with Github")
+        else:
+            # might be rate limited or something...
+            msg = (
+                "Sorry, Github is having some trouble, and we couldn't access"
+                "your information. Please try again later."
+            )
+            try:
+                message = response.json()["message"]
+                msg += " The message from Github was: {msg}".format(msg=message)
+            except Exception:
+                pass
+            flash(msg, category="error")
