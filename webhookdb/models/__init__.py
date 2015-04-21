@@ -1,7 +1,7 @@
 # coding=utf-8
 from __future__ import unicode_literals
 from datetime import datetime
-from flask_dance.models import OAuthConsumerMixin
+from flask_dance.consumer.backend.sqla import OAuthConsumerMixin
 from sqlalchemy import text
 from webhookdb import db, login_manager
 from .github import (
