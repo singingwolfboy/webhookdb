@@ -1,5 +1,5 @@
 Flask==0.10.1
-Flask-Dance[sqla]==0.5.0
+Flask-Dance[sqla]==0.6.0
 Flask-SQLAlchemy==2.0
 Flask-Script
 Flask-SSLify
@@ -10,7 +10,7 @@ redis==2.10.3
 librabbitmq==1.6.1
 blinker
 requests==2.5.0
-git+https://github.com/singingwolfboy/requests-oauthlib.git@allow-setting-values-after-initialization#egg=requests_oauthlib
+requests-oauthlib==0.5.0
 bugsnag
 gunicorn==19.1.1
 psycopg2==2.5.4
