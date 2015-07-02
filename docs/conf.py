@@ -27,6 +27,7 @@ sys.path.insert(0, os.path.abspath('..'))
 # coming with Sphinx (named 'sphinx.ext.*') or your custom ones.
 extensions = [
     'sphinx.ext.autodoc',
+    'sphinx.ext.intersphinx',
     'sphinxcontrib.autohttp.flask',
 ]
 
@@ -243,3 +244,8 @@ texinfo_documents = [
 
 # How to display URL addresses: 'footnote', 'no', or 'inline'.
 #texinfo_show_urls = 'footnote'
+
+intersphinx_mapping = {
+    'celery': ('http://docs.celeryproject.org/en/latest/', None),
+    'flask': ('http://flask.pocoo.org/docs/', None),
+}
