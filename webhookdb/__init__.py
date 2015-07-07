@@ -36,9 +36,10 @@ def expand_config(name):
     return "webhookdb.config.{classname}Config".format(classname=name.capitalize())
 
 
-def create_app(config="default"):
+def create_app(config=None):
     app = Flask(__name__)
     handle_exceptions(app)
+    config = config or os.environ.get("WEBHOOKDB_CONFIG") or "default"
     app.config.from_object(expand_config(config))
 
     db.init_app(app)
