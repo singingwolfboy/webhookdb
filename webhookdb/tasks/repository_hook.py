@@ -76,7 +76,8 @@ def hooks_scanned(owner, repo, requestor_id=None):
     Update the timestamp on the repository object,
     and delete old hooks that weren't updated.
     """
-    repo = Repository.get(owner, repo)
+    repo_name = repo
+    repo = Repository.get(owner, repo_name)
     prev_scan_at = repo.hooks_last_scanned_at
     repo.hooks_last_scanned_at = datetime.now()
     db.session.add(repo)
@@ -91,8 +92,9 @@ def hooks_scanned(owner, repo, requestor_id=None):
         query.delete()
 
     # delete the mutex
-    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo_name)
     Mutex.query.filter_by(name=lock_name).delete()
+    logger.info("Lock {name} deleted".format(name=lock_name))
 
     db.session.commit()
 
@@ -112,6 +114,10 @@ def spawn_page_tasks_for_repository_hooks(
         db.session.commit()
     except IntegrityError:
         return False
+    else:
+        logger.info("Lock {name} set by {requestor_id}".format(
+            name=lock_name, requestor_id=requestor_id,
+        ))
 
     hook_page_url = (
         "/repos/{owner}/{repo}/hooks?per_page={per_page}"

@@ -7,7 +7,7 @@ from urlobject import URLObject
 from colour import Color
 from webhookdb import db
 from webhookdb.models import IssueLabel, Repository
-from webhookdb.exceptions import MissingData, StaleData
+from webhookdb.exceptions import MissingData, StaleData, NotFound
 from sqlalchemy.orm.exc import NoResultFound, MultipleResultsFound
 
 

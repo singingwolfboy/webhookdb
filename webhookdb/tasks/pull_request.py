@@ -9,7 +9,7 @@ from webhookdb.process import process_pull_request
 from webhookdb.models import PullRequest, Repository, Mutex
 from webhookdb.exceptions import NotFound
 from sqlalchemy.exc import IntegrityError
-from webhookdb.tasks import celery
+from webhookdb.tasks import celery, logger
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.pull_request_file import spawn_page_tasks_for_pull_request_files
 from urlobject import URLObject
@@ -89,7 +89,8 @@ def pull_requests_scanned(owner, repo, requestor_id=None):
     Update the timestamp on the repository object,
     and delete old pull request that weren't updated.
     """
-    repo = Repository.get(owner, repo)
+    repo_name = repo
+    repo = Repository.get(owner, repo_name)
     prev_scan_at = repo.pull_requests_last_scanned_at
     repo.pull_requests_last_scanned_at = datetime.now()
     db.session.add(repo)
@@ -98,14 +99,15 @@ def pull_requests_scanned(owner, repo, requestor_id=None):
         # delete any PRs that were not updated since the previous scan --
         # they have been removed from Github
         query = (
-            PullRequest.query.filter_by(repo_id=repo.id)
+            PullRequest.query.filter_by(base_repo_id=repo.id)
             .filter(PullRequest.last_replicated_at < prev_scan_at)
         )
         query.delete()
 
     # delete the mutex
-    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo_name)
     Mutex.query.filter_by(name=lock_name).delete()
+    logger.info("Lock {name} deleted".format(name=lock_name))
 
     db.session.commit()
 
@@ -124,6 +126,10 @@ def spawn_page_tasks_for_pull_requests(owner, repo, state="all", children=False,
         db.session.commit()
     except IntegrityError:
         return False
+    else:
+        logger.info("Lock {name} set by {requestor_id}".format(
+            name=lock_name, requestor_id=requestor_id,
+        ))
 
     pr_list_url = (
         "/repos/{owner}/{repo}/pulls?"

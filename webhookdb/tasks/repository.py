@@ -9,7 +9,7 @@ from webhookdb.process import process_repository
 from webhookdb.models import Repository, User, UserRepoAssociation, Mutex
 from webhookdb.exceptions import NotFound, StaleData, MissingData
 from sqlalchemy.exc import IntegrityError, SQLAlchemyError
-from webhookdb.tasks import celery
+from webhookdb.tasks import celery, logger
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.tasks.issue import spawn_page_tasks_for_issues
 from webhookdb.tasks.label import spawn_page_tasks_for_labels
@@ -150,6 +150,7 @@ def user_repositories_scanned(username, requestor_id=None):
     # delete the mutex
     lock_name = LOCK_TEMPLATE.format(username=username)
     Mutex.query.filter_by(name=lock_name).delete()
+    logger.info("Lock {name} deleted".format(name=lock_name))
 
     db.session.commit()
 
@@ -169,6 +170,10 @@ def spawn_page_tasks_for_user_repositories(
         db.session.commit()
     except IntegrityError:
         return False
+    else:
+        logger.info("Lock {name} set by {requestor_id}".format(
+            name=lock_name, requestor_id=requestor_id,
+        ))
 
     repo_page_url = (
         "/users/{username}/repos?type={type}&per_page={per_page}"

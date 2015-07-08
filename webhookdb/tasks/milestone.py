@@ -10,6 +10,7 @@ from webhookdb.process import process_milestone
 from webhookdb.models import Milestone, Repository, Mutex
 from webhookdb.exceptions import NotFound, StaleData, MissingData, DatabaseError
 from sqlalchemy.exc import IntegrityError
+from webhookdb.tasks import logger
 from webhookdb.tasks.fetch import fetch_url_from_github
 
 LOCK_TEMPLATE = "Repository|{owner}/{repo}|milestones"
@@ -79,7 +80,8 @@ def milestones_scanned(owner, repo, requestor_id=None):
     Update the timestamp on the repository object,
     and delete old milestones that weren't updated.
     """
-    repo = Repository.get(owner, repo)
+    repo_name = repo
+    repo = Repository.get(owner, repo_name)
     prev_scan_at = repo.milestones_last_scanned_at
     repo.milestones_last_scanned_at = datetime.now()
     db.session.add(repo)
@@ -94,8 +96,9 @@ def milestones_scanned(owner, repo, requestor_id=None):
         query.delete()
 
     # delete the mutex
-    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo_name)
     Mutex.query.filter_by(name=lock_name).delete()
+    logger.info("Lock {name} deleted".format(name=lock_name))
 
     db.session.commit()
 
@@ -114,6 +117,10 @@ def spawn_page_tasks_for_milestones(owner, repo, state="all", children=False,
         db.session.commit()
     except IntegrityError:
         return False
+    else:
+        logger.info("Lock {name} set by {requestor_id}".format(
+            name=lock_name, requestor_id=requestor_id,
+        ))
 
     milestone_list_url = (
         "/repos/{owner}/{repo}/pulls?"

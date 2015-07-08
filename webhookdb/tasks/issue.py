@@ -8,7 +8,7 @@ from urlobject import URLObject
 from webhookdb import db
 from webhookdb.models import Issue, Repository, Mutex
 from webhookdb.process import process_issue
-from webhookdb.tasks import celery
+from webhookdb.tasks import celery, logger
 from webhookdb.tasks.fetch import fetch_url_from_github
 from webhookdb.exceptions import NotFound
 from sqlalchemy.exc import IntegrityError
@@ -77,7 +77,8 @@ def issues_scanned(owner, repo, requestor_id=None):
     Update the timestamp on the repository object,
     and delete old issues that weren't updated.
     """
-    repo = Repository.get(owner, repo)
+    repo_name = repo
+    repo = Repository.get(owner, repo_name)
     prev_scan_at = repo.issues_last_scanned_at
     repo.issues_last_scanned_at = datetime.now()
     db.session.add(repo)
@@ -92,8 +93,9 @@ def issues_scanned(owner, repo, requestor_id=None):
         query.delete()
 
     # delete the mutex
-    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo)
+    lock_name = LOCK_TEMPLATE.format(owner=owner, repo=repo_name)
     Mutex.query.filter_by(name=lock_name).delete()
+    logger.info("Lock {name} deleted".format(name=lock_name))
 
     db.session.commit()
 
@@ -112,6 +114,10 @@ def spawn_page_tasks_for_issues(owner, repo, state="all", children=False,
         db.session.commit()
     except IntegrityError:
         return False
+    else:
+        logger.info("Lock {name} set by {requestor_id}".format(
+            name=lock_name, requestor_id=requestor_id,
+        ))
 
     issue_list_url = (
         "/repos/{owner}/{repo}/issues?"
