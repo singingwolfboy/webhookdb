@@ -17,10 +17,10 @@ def fetch_url_from_github(self, url, as_user=None, requestor_id=None, **kwargs):
 
     username = "anonymous"
     if as_user:
-        github.load_token(as_user)
+        github.blueprint.config["user"] = as_user
         username = "@{login}".format(login=as_user.login)
     elif requestor_id:
-        github.load_token(user_id=int(requestor_id))
+        github.blueprint.config["user_id"] = int(requestor_id)
         username = "user {}".format(requestor_id)
 
     logger.info("{method} {url} as {username}".format(
