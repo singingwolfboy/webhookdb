@@ -29,11 +29,9 @@ def index():
     if current_user.is_anonymous():
         return render_template("home-anonymous.html")
     else:
-        secure = request.is_secure or request.headers.get("X-Forwarded-Proto", "http") == "https"
         replication_url = url_for(
             "replication.pull_request",
             _external=True,
-            _scheme="https" if secure else "http",
         )
         is_self_hook = (RepositoryHook.url == replication_url)
         repos = (
@@ -63,10 +61,6 @@ def install():
     if not repo_name:
         return jsonify({"error": "missing repo param"}), 400
 
-    secure = (
-        request.is_secure or
-        request.headers.get("X-Forwarded-Proto", "http") == "https"
-    )
     hook_url = "/repos/{owner}/{repo}/hooks".format(
         owner=owner_login, repo=repo_name,
     )
@@ -74,7 +68,6 @@ def install():
         api_url = url_for(
             "replication.{endpoint}".format(endpoint=event),
             _external=True,
-            _scheme="https" if secure else "http",
         )
         body = {
             "name": "web",
@@ -115,16 +108,10 @@ def uninstall():
     if not repo_name:
         return jsonify({"error": "missing repo param"}), 400
 
-    secure = (
-        request.is_secure or
-        request.headers.get("X-Forwarded-Proto", "http") == "https"
-    )
-
     replication_urls = [
         url_for(
             "replication.{endpoint}".format(endpoint=endpoint),
             _external=True,
-            _scheme="https" if secure else "http",
         )
         for endpoint in ("pull_request", "issue")
     ]

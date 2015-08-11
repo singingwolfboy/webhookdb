@@ -12,6 +12,7 @@ sys.stderr = codecs.getwriter('utf-8')(sys.stderr)
 import os
 
 from flask import Flask
+from werkzeug.contrib.fixers import ProxyFix
 import bugsnag
 from bugsnag.flask import handle_exceptions
 from bugsnag.celery import connect_failure_handler
@@ -39,6 +40,7 @@ def expand_config(name):
 def create_app(config=None):
     app = Flask(__name__)
     handle_exceptions(app)
+    app.wsgi_app = ProxyFix(app.wsgi_app)
     config = config or os.environ.get("WEBHOOKDB_CONFIG") or "default"
     app.config.from_object(expand_config(config))
 
