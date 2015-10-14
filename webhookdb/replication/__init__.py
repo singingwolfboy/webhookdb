@@ -9,6 +9,22 @@ from .repository import repository
 from .pull_request import pull_request
 from .issue import issue
 
+@replication.route('/')
+def main():
+    """
+    Webhook endpoint for all events on GitHub.
+    """
+    event = request.headers.get("X-Github-Event", "").lower()
+    if event == "issues":
+        return issue()
+    elif event == "pull_request":
+        return pull_request()
+    elif event == "repository":
+        return repository()
+    else:
+        return jsonify({"error": "unhandled event", "event": event}), 400
+
+
 @replication.before_request
 def ping():
     """

@@ -64,35 +64,30 @@ def install():
     hook_url = "/repos/{owner}/{repo}/hooks".format(
         owner=owner_login, repo=repo_name,
     )
-    for event in ("pull_request", "issue"):
-        api_url = url_for(
-            "replication.{endpoint}".format(endpoint=event),
-            _external=True,
-        )
-        body = {
-            "name": "web",
-            "events": [event],
-            "config": {
-                "url": api_url,
-                "content_type": "json",
-            }
+    body = {
+        "name": "web",
+        "events": ["pull_request", "issue"],
+        "config": {
+            "url": url_for("replication.main", _external=True),
+            "content_type": "json",
         }
-        bugsnag_context = {"owner": owner_login, "repo": repo_name, "body": body}
-        bugsnag.configure_request(meta_data=bugsnag_context)
+    }
+    bugsnag_context = {"owner": owner_login, "repo": repo_name, "body": body}
+    bugsnag.configure_request(meta_data=bugsnag_context)
 
-        logging.info("POST {}".format(hook_url))
-        hook_resp = github.post(hook_url, json=body)
-        if not hook_resp.ok:
-            error_obj = hook_resp.json()
-            resp = jsonify({"error": error_obj["message"]})
-            resp.status_code = 503
-            return resp
-        else:
-            hook_data = hook_resp.json()
-            process_repository_hook(
-                hook_data, via="api", fetched_at=datetime.now(), commit=True,
-                requestor_id=current_user.get_id(),
-            )
+    logging.info("POST {}".format(hook_url))
+    hook_resp = github.post(hook_url, json=body)
+    if not hook_resp.ok:
+        error_obj = hook_resp.json()
+        resp = jsonify({"error": error_obj["message"]})
+        resp.status_code = 503
+        return resp
+    else:
+        hook_data = hook_resp.json()
+        process_repository_hook(
+            hook_data, via="api", fetched_at=datetime.now(), commit=True,
+            requestor_id=current_user.get_id(),
+        )
 
     return jsonify({"message": "success"})
 
@@ -113,7 +108,7 @@ def uninstall():
             "replication.{endpoint}".format(endpoint=endpoint),
             _external=True,
         )
-        for endpoint in ("pull_request", "issue")
+        for endpoint in ("main", "pull_request", "issue")
     ]
 
     repo_hooks = (
