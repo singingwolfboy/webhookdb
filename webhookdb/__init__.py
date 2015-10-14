@@ -13,15 +13,16 @@ import os
 
 from flask import Flask
 from werkzeug.contrib.fixers import ProxyFix
-import bugsnag
-from bugsnag.flask import handle_exceptions
-from bugsnag.celery import connect_failure_handler
+from opbeat.contrib.flask import Opbeat
+from opbeat.handlers.logging import OpbeatHandler
+from opbeat.contrib.celery import register_signal
 from flask.ext.sqlalchemy import SQLAlchemy
 from flask_sslify import SSLify
 from flask_bootstrap import Bootstrap
 from flask_login import LoginManager
 from celery import Celery
 
+opbeat = Opbeat()
 db = SQLAlchemy()
 bootstrap = Bootstrap()
 celery = Celery()
@@ -39,11 +40,12 @@ def expand_config(name):
 
 def create_app(config=None):
     app = Flask(__name__)
-    handle_exceptions(app)
     app.wsgi_app = ProxyFix(app.wsgi_app)
     config = config or os.environ.get("WEBHOOKDB_CONFIG") or "default"
     app.config.from_object(expand_config(config))
 
+    if not app.config["TESTING"]:
+        opbeat.init_app(app)
     db.init_app(app)
     bootstrap.init_app(app)
     login_manager.init_app(app)
@@ -84,10 +86,5 @@ def create_celery_app(app=None, config="worker"):
             with app.app_context():
                 return TaskBase.__call__(self, *args, **kwargs)
     celery.Task = ContextTask
-    connect_failure_handler()
-    bugsnag.configure(ignore_classes=[
-        "webhookdb.exceptions.StaleData",
-        "webhookdb.exceptions.NothingToDo",
-        "webhookdb.exceptions.RateLimited",
-    ])
+    register_signal(opbeat.client)
     return celery

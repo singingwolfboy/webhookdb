@@ -11,7 +11,7 @@ librabbitmq==1.6.1
 blinker
 requests==2.5.0
 requests-oauthlib==0.5.0
-bugsnag
+opbeat[flask]
 gunicorn==19.1.1
 psycopg2==2.5.4
 iso8601
