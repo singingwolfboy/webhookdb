@@ -82,6 +82,34 @@ class User(db.Model, ReplicationTimestampMixin, UserMixin):
     def __str__(self):
         return unicode(self).encode('utf-8')
 
+    @property
+    def github_json(self):
+        url = "https://api.github.com/users/{login}".format(login=self.login)
+        html_url = "https://github.com/{login}".format(login=login)
+        avatar_url = "https://avatars.githubusercontent.com/u/{id}".format(
+            id=self.id,
+        )
+        serialized = {
+            "login": self.login,
+            "id": self.id,
+            "avatar_url": avatar_url,
+            "gravatar_id": "",
+            "url": url,
+            "html_url": html_url,
+            "followers_url": url + "/followers",
+            "following_url": url + "/following{/other_user}",
+            "gists_url": url + "/gists{/gist_id}",
+            "starred_url": url + "/starred{/owner}{/repo}",
+            "subscriptions_url": url + "/subscriptions",
+            "organizations_url": url + "/orgs",
+            "repos_url": url + "/repos",
+            "events_url": url + "/events{/privacy}",
+            "received_events_url": url + "/received_events",
+            "type": "User",
+            "site_admin": self.site_admin,
+        }
+        return serialized
+
 
 class Repository(db.Model, ReplicationTimestampMixin):
     __tablename__ = "github_repository"
@@ -177,6 +205,100 @@ class Repository(db.Model, ReplicationTimestampMixin):
 
     def __str__(self):
         return unicode(self).encode('utf-8')
+
+    @property
+    def github_json(self):
+        url = "https://api.github.com/repos/{owner}/{repo}".format(
+            owner=self.owner_login,
+            repo=self.name,
+        )
+        html_url = "https://github.com/{owner}/{repo}".format(
+            owner=self.owner_login,
+            repo=self.name,
+        )
+        git_url = "git://github.com/{owner}/{repo}.git".format(
+            owner=self.owner_login,
+            repo=self.name,
+        )
+        ssh_url = "git@github.com:{owner}/{repo}.git".format(
+            owner=self.owner_login,
+            repo=self.name,
+        )
+        svn_url = "https://github.com/{owner}/{repo}".format(
+            owner=self.owner_login,
+            repo=self.name,
+        )
+        clone_url = svn_url + ".git"
+        serialized = {
+            "id": self.id,
+            "name": self.name,
+            "full_name": self.full_name,
+            "owner": self.owner.github_json,
+            "private": self.private,
+            "html_url": html_url,
+            "description": self.description,
+            "fork": self.fork,
+            "url": url,
+            "forks_url": url + "/forks",
+            "keys_url": url + "/keys{/key_id}",
+            "collaborators_url": url + "/collaborators{/collaborator}",
+            "teams_url": url + "/teams",
+            "hooks_url": url + "/hooks",
+            "issue_events_url": url + "/issues/events{/number}",
+            "events_url": url + "/events",
+            "assignees_url": url + "/assignees{/user}",
+            "branches_url": url + "/branches{/branch}",
+            "tags_url": url + "/tags",
+            "blobs_url": url + "/git/blobs{/sha}",
+            "git_tags_url": url + "/git/tags{/sha}",
+            "git_refs_url": url + "/git/refs{/sha}",
+            "trees_url": url + "/git/trees{/sha}",
+            "statuses_url": url + "/statuses/{sha}",
+            "languages_url": url + "/languages",
+            "stargazers_url": url + "/stargazers",
+            "contributors_url": url + "/contributors",
+            "subscribers_url": url + "/subscribers",
+            "subscription_url": url + "/subscription",
+            "commits_url": url + "/commits{/sha}",
+            "git_commits_url": url + "/git/commits{/sha}",
+            "comments_url": url + "/comments{/number}",
+            "issue_comment_url": url + "/issues/comments{/number}",
+            "contents_url": url + "/contents/{+path}",
+            "compare_url": url + "/compare/{base}...{head}",
+            "merges_url": url + "/merges",
+            "archive_url": url + "/{archive_format}{/ref}",
+            "downloads_url": url +"/downloads",
+            "issues_url": url + "/issues{/number}",
+            "pulls_url": url + "/pulls{/number}",
+            "milestones_url": url + "/milestones{/number}",
+            "notifications_url": url + "/notifications{?since,all,participating}",
+            "labels_url": url + "/labels{/name}",
+            "releases_url": url + "/releases{/id}",
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "pushed_at": self.pushed_at,
+            "git_url": git_url,
+            "ssh_url": ssh_url,
+            "clone_url": clone_url,
+            "svn_url": svn_url,
+            "homepage": self.homepage,
+            "size": self.size,
+            "stargazers_count": self.stargazers_count,
+            "watchers_count": self.watchers_count,
+            "language": self.language,
+            "has_issues": self.has_issues,
+            "has_downloads": self.has_downloads,
+            "has_wiki": self.has_wiki,
+            "has_pages": self.has_pages,
+            "forks_count": self.forks_count,
+            "mirror_url": None,  # FIXME
+            "open_issues_count": self.open_issues_count,
+            "forks": self.forks_count,
+            "open_issues": self.open_issues_count,
+            "watchers": self.watchers_count,
+            "default_branch": self.default_branch,
+        }
+        return serialized
 
 
 class UserRepoAssociation(db.Model, ReplicationTimestampMixin):
@@ -276,6 +398,37 @@ class Milestone(db.Model, ReplicationTimestampMixin):
         except NoResultFound:
             return None
 
+    @property
+    def github_json(self):
+        url = "https://api.github.com/repos/{owner}/{repo}/milestones/{number}".format(
+            owner=self.repo.owner_login,
+            repo=self.repo.name,
+            number=self.number,
+        )
+        html_url = "https://github.com/{owner}/{repo}/milestones/{title}".format(
+            owner=self.repo.owner_login,
+            repo=self.repo.name,
+            title=self.title,
+        )
+        serialized = {
+            "url": url,
+            "html_url": html_url,
+            "labels_url": url + "/labels",
+            "id": self.id,
+            "number": self.number,
+            "state": self.state,
+            "title": self.title,
+            "description": self.description,
+            "creator": self.creator.github_json,
+            "open_issues": self.open_issues_count,
+            "closed_issues": self.closed_issues_count,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "closed_at": self.closed_at,
+            "due_on": self.due_at,
+        }
+        return serialized
+
 
 class PullRequest(db.Model, ReplicationTimestampMixin):
     __tablename__ = "github_pull_request"
@@ -336,8 +489,8 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
         backref=backref("pull_requests", order_by=number),
     )
     merged = db.Column(db.Boolean)
-    mergable = db.Column(db.Boolean)
-    mergable_state = db.Column(db.String(64))
+    mergeable = db.Column(db.Boolean)
+    mergeable_state = db.Column(db.String(64))
     merged_by_id = db.Column(db.Integer, index=True)
     merged_by_login = db.Column(db.String(256))
     merged_by = db.relationship(
@@ -388,6 +541,109 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
     def __str__(self):
         return unicode(self).encode('utf-8')
 
+    @property
+    def github_json(self):
+        """
+        Serialize to a JSON-serializable dict that matches GitHub's
+        JSON serialization.
+        """
+        url = "https://api.github.com/repos/{owner}/{repo}/pulls/{number}".format(
+            owner=self.base_repo.owner_login,
+            repo=self.base_repo.name,
+            number=self.number,
+        )
+        issue_url = "https://api.github.com/repos/{owner}/{repo}/issues/{number}".format(
+            owner=self.base_repo.owner_login,
+            repo=self.base_repo.name,
+            number=self.number,
+        )
+        html_url = "https://github.com/{owner}/{repo}/pull/{number}".format(
+            owner=self.base_repo.owner_login,
+            repo=self.base_repo.name,
+            number=self.number,
+        )
+        serialized = {
+            "id": self.id,
+            "url": url,
+            "issue_url": issue_url,
+            "html_url": html_url,
+            "diff_url": html_url + ".diff",
+            "patch_url": html_url + ".patch",
+            "commits_url": url + "/commits",
+            "comments_url": issue_url + "/comments",
+            "review_comments_url": url + "/comments",
+            "review_comment_url": url + "/comment{/number}",
+            "statuses_url": url + "/statuses/1234567890abcdef",
+            "_links": {
+                "self": {
+                    "href": self,
+                },
+                "html": {
+                    "href": html_url,
+                },
+                "issue": {
+                    "href": issue_url,
+                },
+                "comments": {
+                    "href": issue_url + "/comments",
+                },
+                "review_comments": {
+                    "href": url + "/comments",
+                },
+                "review_comment": {
+                    "href": url + "/comment{/number}",
+                },
+                "commits": {
+                    "href": url + "/commits",
+                },
+                "statuses": {
+                    "href": url + "/statuses/1234567890abcdef",
+                }
+            },
+            "number": self.number,
+            "state": self.state,
+            "locked": self.locked,
+            "title": self.title,
+            "user": self.user.github_json,
+            "body": self.body,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "closed_at": self.closed_at,
+            "merged_at": self.merged_at,
+            "assignee": getattr(self.assignee, "github_json", None),
+            "milestone": getattr(self.milestone, "github_json", None),
+            "head": {
+                "label": "{owner}:{ref}".format(
+                    owner=self.head_repo.owner_login, ref=self.head_ref
+                ),
+                "ref": self.head_ref,
+                "sha": "1234567890abcdef",
+                "user": self.head_repo.owner.github_json,
+                "repo": self.head_repo.github_json,
+            },
+            "base": {
+                "label": "{owner}:{ref}".format(
+                    owner=self.base_repo.owner_login, ref=self.base_ref
+                ),
+                "ref": self.base_ref,
+                "sha": "1234567890abcdef",
+                "user": self.base_repo.owner.github_json,
+                "repo": self.base_repo.github_json,
+            },
+            "merged": self.merged,
+            "mergeable": self.mergeable,
+            "mergeable_state": self.mergeable_state,
+            "merged_by": getattr(self.assignee, "github_json", None),
+            "comments": self.comments_count,
+            "review_comments": self.review_comments_count,
+            "commits": self.commits_count,
+            "additions": self.additions,
+            "deletions": self.deletions,
+            "changed_files": self.changed_files,
+            "repository": self.base_repo.github_json,
+            "organization": getattr(self.base_repo.organization, "github_json", None),
+        }
+        return serialized
 
 
 class PullRequestFile(db.Model, ReplicationTimestampMixin):
@@ -464,6 +720,16 @@ class IssueLabel(db.Model, ReplicationTimestampMixin):
             name=self.name,
             repo=self.repo,
         )
+
+    @property
+    def github_json(self):
+        url = "https://api.github.com/repos/{owner}/{repo}/labels/{name}",
+        serialized = {
+            "url": url,
+            "name": self.name,
+            "color": str(self.color).replace("#", ""),
+        }
+        return serialized
 
 
 label_association_table = db.Table("github_issue_label_association", db.Model.metadata,
@@ -560,3 +826,55 @@ class Issue(db.Model, ReplicationTimestampMixin):
             return query.one()
         except NoResultFound:
             return None
+
+    @property
+    def github_json(self):
+        url = "https://api.github.com/repos/{owner}/{repo}/issues/{number}".format(
+            owner=self.repo.owner_login,
+            repo=self.repo.name,
+            number=self.number,
+        )
+        html_url = "https://github.com/{owner}/{repo}/issues/{number}".format(
+            owner=self.repo.owner_login,
+            repo=self.repo.name,
+            number=self.number,
+        )
+        pr_url = "https://api.github.com/repos/{owner}/{repo}/pulls/{number}".format(
+            owner=self.repo.owner_login,
+            repo=self.repo.name,
+            number=self.number,
+        )
+        html_pr_url = "https://github.com/{owner}/{repo}/pulls/{number}".format(
+            owner=self.repo.owner_login,
+            repo=self.repo.name,
+            number=self.number,
+        )
+        serialized = {
+            "id": self.id,
+            "url": url,
+            "labels_url": url + "/labels{/name}",
+            "comments_url": url + "/comments",
+            "events_url": url + "/events",
+            "html_url": html_url,
+            "number": self.number,
+            "state": self.state,
+            "title": self.title,
+            "body": self.body,
+            "user": self.user.github_json,
+            "labels": [label.github_json for label in self.labels],
+            "assignee": getattr(self.assignee, "github_json", None),
+            "milestone": getattr(self.milestone, "github_json", None),
+            "locked": self.locked,
+            "comments": self.comments_count,
+            "pull_request": {
+                "url": pr_url,
+                "html_url": html_pr_url,
+                "diff_url": html_pr_url + ".diff",
+                "patch_url": html_pr_url + ".patch",
+            },
+            "closed_at": self.closed_at,
+            "created_at": self.created_at,
+            "updated_at": self.updated_at,
+            "closed_by": getattr(self.closed_by, "github_json", None),
+        }
+        return serialized

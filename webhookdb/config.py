@@ -34,3 +34,7 @@ class WorkerConfig(DefaultConfig):
 
 class DevelopmentConfig(DefaultConfig):
     DEBUG = True
+
+
+class TestConfig(DefaultConfig):
+    TESTING = True
