@@ -4,9 +4,9 @@ python:
   - "2.7"
 cache: pip
 install:
-  - pip install -r requirements.txt
-  - pip install -r dev-requirements.txt
-  - pip install codecov
+  - travis_retry pip install -r requirements.txt
+  - travis_retry pip install -r dev-requirements.txt
+  - travis_retry pip install codecov
 script:
   - py.test --cov=webhookdb
   - cd docs && make html
