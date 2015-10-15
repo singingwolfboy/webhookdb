@@ -1,0 +1,18 @@
+sudo: false
+language: python
+python:
+  - "2.7"
+cache: pip
+install:
+  - pip install -r requirements.txt
+  - pip install -r dev-requirements.txt
+  - pip install codecov
+script:
+  - py.test --cov=webhookdb
+  - cd docs && make html
+  - cd ..
+after_success:
+  - codecov
+branches:
+    only:
+      - master
