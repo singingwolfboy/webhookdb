@@ -1,4 +1,6 @@
 *.pyc
+*.egg-info
 github.db
 docs/_build
 .env
+.cache

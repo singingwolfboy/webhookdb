@@ -38,3 +38,5 @@ class DevelopmentConfig(DefaultConfig):
 
 class TestConfig(DefaultConfig):
     TESTING = True
+    SQLALCHEMY_DATABASE_URI = "sqlite://"  # in-memory database
+    CELERY_ALWAYS_EAGER = True

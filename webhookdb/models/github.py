@@ -85,7 +85,7 @@ class User(db.Model, ReplicationTimestampMixin, UserMixin):
     @property
     def github_json(self):
         url = "https://api.github.com/users/{login}".format(login=self.login)
-        html_url = "https://github.com/{login}".format(login=login)
+        html_url = "https://github.com/{login}".format(login=self.login)
         avatar_url = "https://avatars.githubusercontent.com/u/{id}".format(
             id=self.id,
         )
@@ -576,7 +576,7 @@ class PullRequest(db.Model, ReplicationTimestampMixin):
             "statuses_url": url + "/statuses/1234567890abcdef",
             "_links": {
                 "self": {
-                    "href": self,
+                    "href": url,
                 },
                 "html": {
                     "href": html_url,

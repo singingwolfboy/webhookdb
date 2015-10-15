@@ -39,10 +39,12 @@ def expand_config(name):
 
 def create_app(config=None):
     app = Flask(__name__)
-    handle_exceptions(app)
     app.wsgi_app = ProxyFix(app.wsgi_app)
     config = config or os.environ.get("WEBHOOKDB_CONFIG") or "default"
     app.config.from_object(expand_config(config))
+
+    if not app.config["TESTING"]:
+        handle_exceptions(app)
 
     db.init_app(app)
     bootstrap.init_app(app)
@@ -84,10 +86,11 @@ def create_celery_app(app=None, config="worker"):
             with app.app_context():
                 return TaskBase.__call__(self, *args, **kwargs)
     celery.Task = ContextTask
-    connect_failure_handler()
-    bugsnag.configure(ignore_classes=[
-        "webhookdb.exceptions.StaleData",
-        "webhookdb.exceptions.NothingToDo",
-        "webhookdb.exceptions.RateLimited",
-    ])
+    if not app.config["TESTING"]:
+        connect_failure_handler()
+        bugsnag.configure(ignore_classes=[
+            "webhookdb.exceptions.StaleData",
+            "webhookdb.exceptions.NothingToDo",
+            "webhookdb.exceptions.RateLimited",
+        ])
     return celery

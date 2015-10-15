@@ -9,7 +9,7 @@ from .repository import repository
 from .pull_request import pull_request
 from .issue import issue
 
-@replication.route('/')
+@replication.route('', methods=["POST"])
 def main():
     """
     Webhook endpoint for all events on GitHub.
