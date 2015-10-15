@@ -1,5 +1,6 @@
 import pytest
 import betamax
+import os
 import json
 from datetime import datetime
 from webhookdb import create_app, db
@@ -8,10 +9,11 @@ from webhookdb.tasks.fetch import github
 from flask.testing import FlaskClient
 
 
+record_mode = 'none' if os.environ.get("CI") else 'once'
 
 with betamax.Betamax.configure() as config:
     config.cassette_library_dir = 'tests/cassettes'
-    config.default_cassette_options['record_mode'] = 'once'
+    config.default_cassette_options['record_mode'] = record_mode
 
 
 class GitHubJSONEncoder(json.JSONEncoder):
