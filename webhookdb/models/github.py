@@ -150,7 +150,7 @@ class Repository(db.Model, ReplicationTimestampMixin):
     has_pages = db.Column(db.Boolean)
     forks_count = db.Column(db.Integer)
     open_issues_count = db.Column(db.Integer)
-    default_branch = db.Column(db.String(256))
+    default_branch = db.Column(db.String(256), default="master")
 
     # not on github -- used for keeping track of scanning children
     hooks_last_scanned_at = db.Column(db.DateTime)

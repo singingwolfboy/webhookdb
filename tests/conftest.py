@@ -7,6 +7,16 @@ from webhookdb import create_app, db
 from webhookdb.oauth import GithubSession
 from webhookdb.tasks.fetch import github
 from flask.testing import FlaskClient
+from factories import (
+    UserFactory, RepoFactory, MilestoneFactory, PullRequestFactory
+)
+from pytest_factoryboy import register
+
+
+register(UserFactory)
+register(RepoFactory)
+register(MilestoneFactory)
+register(PullRequestFactory)
 
 
 record_mode = 'none' if os.environ.get("CI") else 'once'

@@ -7,4 +7,6 @@ sphinxcontrib-httpdomain
 # tests
 pytest
 pytest-cover
+pytest-factoryboy
+factory_boy
 betamax
