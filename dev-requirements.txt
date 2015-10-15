@@ -1,7 +1,10 @@
 -r requirements.txt
+
 # docs
 sphinx
 sphinxcontrib-httpdomain
+
 # tests
 pytest
+pytest-cover
 betamax
