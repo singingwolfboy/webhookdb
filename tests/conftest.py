@@ -1,8 +1,17 @@
 import pytest
+import betamax
 import json
 from datetime import datetime
 from webhookdb import create_app, db
+from webhookdb.oauth import GithubSession
+from webhookdb.tasks.fetch import github
 from flask.testing import FlaskClient
+
+
+
+with betamax.Betamax.configure() as config:
+    config.cassette_library_dir = 'tests/cassettes'
+    config.default_cassette_options['record_mode'] = 'once'
 
 
 class GitHubJSONEncoder(json.JSONEncoder):
@@ -58,3 +67,26 @@ def app(request):
     request.addfinalizer(teardown)
     return _app
 
+
+@pytest.fixture
+def github_betamax(request):
+    """
+    Copied from Betamax's `betamax_session` fixture, but using the Flask-Dance
+    `github` session that is used in the Celery tasks.
+    """
+    cassette_name = ''
+
+    if request.module is not None:
+        cassette_name += request.module.__name__ + '.'
+
+    if request.cls is not None:
+        cassette_name += request.cls.__name__ + '.'
+
+    cassette_name += request.function.__name__
+
+    recorder = betamax.Betamax(github)
+    recorder.use_cassette(cassette_name)
+    recorder.start()
+    request.addfinalizer(recorder.stop)
+
+    return github

@@ -1,8 +1,11 @@
+import pytest
 from datetime import datetime
 from webhookdb.models import (
     User, Repository, UserRepoAssociation, RepositoryHook, Milestone,
     PullRequest, PullRequestFile, IssueLabel, Issue
 )
+
+pytestmark = pytest.mark.usefixtures("github_betamax")
 
 
 def test_happy_path(app):
